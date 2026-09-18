@@ -1,0 +1,12 @@
+name = "travel-planner-backend"
+main = "src/index.ts"
+compatibility_date = "2024-03-20"
+
+[[kv_namespaces]]
+binding = "CHAT_HISTORY"
+id = "mock-id-local-dev-only" # will be auto-handled locally
+
+[[d1_databases]]
+binding = "DB"
+database_name = "travel-db"
+database_id = "mock-id-local-dev-only"
