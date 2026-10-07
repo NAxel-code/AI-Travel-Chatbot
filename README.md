@@ -2,9 +2,27 @@
 
 Perencana perjalanan berbahasa Indonesia yang mengubah percakapan menjadi itinerary multi-hari. Aplikasi mencari lokasi nyata melalui OpenStreetMap, memeriksa prakiraan cuaca yang tersedia, menyimpan preferensi pengguna, dan memungkinkan penyesuaian per hari melalui chat.
 
+## Tampilan UI
+
+![Tampilan desktop Rute AI Travel Planner](docs/rute-ui.png)
+
+*Tampilan awal desktop: chat dan status proses berada di panel kiri, sedangkan itinerary terstruktur, ekspor PDF, dan kalender berada di panel utama. Layout berubah menjadi vertikal pada perangkat bergerak.*
+
+## Hasil akhir terverifikasi
+
+| Pengukuran lokal | Hasil |
+|---|---:|
+| Header SSE diterima | 56 ms |
+| Status proses pertama tampil | 61 ms |
+| Itinerary tersimpan | 7,5 detik |
+| Jawaban final + `[DONE]` | 8,9 detik |
+| Batas maksimum request AI | 60 detik |
+
+Pengukuran menggunakan permintaan itinerary Bandung tiga hari pada environment lokal. Waktu aktual dapat berubah mengikuti jaringan, provider data, dan beban Gemini.
+
 ## Kemampuan
 
-- Jawaban Gemini dan status proses aman dikirim bertahap melalui Server-Sent Events (SSE); raw chain-of-thought internal tidak diekspos.
+- Jawaban Gemini dan status proses aman dikirim bertahap melalui Server-Sent Events (SSE); stream dibuka sebelum model dipanggil dan request AI dibatasi 60 detik agar UI tidak menggantung. Raw chain-of-thought internal tidak diekspos.
 - Tanggal lampau otomatis digeser ke kejadian terdekat di masa depan dengan durasi perjalanan tetap.
 - Itinerary terstruktur tersimpan di Cloudflare D1; riwayat chat 30 hari tersimpan di KV.
 - Pencarian tempat nyata melalui Nominatim/OpenStreetMap dengan cache 24 jam.
@@ -34,7 +52,7 @@ Alur chat:
 1. Browser meminta session ID dan token acak dari `POST /api/session`.
 2. Worker menyimpan hash token; token mentah hanya disimpan di browser.
 3. Pesan, riwayat, preferensi, dan itinerary aktif dikirim ke Gemini.
-4. Gemini dapat mencari tempat/cuaca, menyimpan preferensi, membuat itinerary, atau mengganti satu hari. Maksimum empat putaran tool per pesan.
+4. Gemini dapat mencari tempat/cuaca, menyimpan preferensi, membuat itinerary, atau mengganti satu hari. Pencarian tempat dibatasi dua kali dan function-calling diarahkan dari lookup ke penyimpanan dalam maksimum empat putaran tool per pesan.
 5. D1 menyimpan perubahan secara atomik melalui `DB.batch()` dan frontend mengambil ulang itinerary.
 
 ## Struktur penting
@@ -75,7 +93,7 @@ npx wrangler d1 execute travel-db --local --file=schema.sql
 npm run dev
 ```
 
-> **Peringatan:** `schema.sql` adalah reset development. Empat tabel aplikasi akan dihapus beserta datanya sebelum dibuat ulang. Jangan jalankan terhadap database yang datanya ingin dipertahankan.
+> **Peringatan:** `schema.sql` adalah reset development. Seluruh tabel aplikasi akan dihapus beserta datanya sebelum dibuat ulang. Jangan jalankan terhadap database yang datanya ingin dipertahankan.
 
 Worker berjalan di `http://localhost:8787`.
 
@@ -185,9 +203,8 @@ Payload event selalu dibuat dengan `JSON.stringify`; parser frontend mempertahan
 
 Urutan model saat ini:
 
-1. `gemini-3.6-flash`
-2. `gemini-flash-latest`
-3. `gemini-2.5-flash-lite`
+1. `gemini-3.5-flash-lite` — model utama berlatensi rendah yang tersedia untuk pengguna baru.
+2. `gemini-3.8-flash` — fallback untuk permintaan yang gagal pada model utama.
 
 Error sementara `429`/`503` dicoba ulang sekali lalu berpindah model. Model `404` dilewati. Error autentikasi, izin, safety, atau request invalid langsung dikembalikan dan tidak disamarkan sebagai fallback.
 
@@ -227,4 +244,6 @@ npm run build
 | Frontend tetap memanggil localhost | Set `VITE_API_BASE` sebelum `npm run build`. |
 | Status 401 setelah upgrade | Browser otomatis membuat session baru jika token lama tidak dapat diklaim. |
 | Status 429 | Tunggu waktu pada header `Retry-After`; jangan menambah fallback model. |
+| Chat berhenti di “Menghubungkan” | Pastikan backend terbaru berjalan; SSE seharusnya membuka progress dalam hitungan milidetik dan menghentikan request maksimal setelah 60 detik. |
+| Model mengembalikan 404 | Gunakan kandidat aktif di `backend/src/chat.ts`; konfigurasi saat ini memakai `gemini-3.5-flash-lite` lalu `gemini-3.8-flash`. |
 | Data tempat/cuaca gagal | Tool akan memberi hasil error ke Gemini; periksa koneksi dan batas provider. |

@@ -76,7 +76,7 @@ test('cancelled and unverified tool writes never reach D1', async () => {
     crypto.randomUUID(),
     'save_user_preference',
     { category: 'budget', value: 'hemat' },
-    { groundedPlaces: new Map(), isCancelled: () => true },
+    { groundedPlaces: new Map(), placeSearches: 0, weatherChecked: false, isCancelled: () => true },
   ), { name: 'AbortError' })
   assert.equal(databaseTouched, false)
 
@@ -99,7 +99,7 @@ test('cancelled and unverified tool writes never reach D1', async () => {
         source_url: 'https://example.com/place',
       }],
     },
-    { groundedPlaces: new Map(), isCancelled: () => false },
+    { groundedPlaces: new Map(), placeSearches: 0, weatherChecked: false, isCancelled: () => false },
   )
   assert.equal(unverified.response.status, 'error')
   assert.equal(databaseTouched, false)
@@ -127,4 +127,35 @@ test('past itinerary and weather dates move to the nearest future occurrence', (
   assert.equal(weather.startDate, '2026-12-20')
   assert.equal(weather.endDate, '2026-12-21')
   assert.equal(weather.dateAdjusted, true)
+})
+
+
+test('model calls time out and skip directly to the next candidate', async () => {
+  const { callWithFallback, ModelTimeoutError, withTimeout } = await import('../src/chat.ts')
+  await assert.rejects(
+    () => withTimeout(new Promise<never>(() => undefined), 5, 'test model'),
+    ModelTimeoutError,
+  )
+
+  const tried: string[] = []
+  const result = await callWithFallback(async (model) => {
+    tried.push(model)
+    if (model === 'slow') throw new ModelTimeoutError('slow model')
+    return model
+  }, ['slow', 'fast'])
+  assert.deepEqual(tried, ['slow', 'fast'])
+  assert.equal(result.model, 'fast')
+})
+
+test('place search limit stops repeated external lookups', async () => {
+  const { executeAgentTool } = await import('../src/agent-tools.ts')
+  const result = await executeAgentTool(
+    { DB: {}, CHAT_HISTORY: {} } as never,
+    crypto.randomUUID(),
+    'search_places',
+    { query: 'alam', destination: 'Bandung' },
+    { groundedPlaces: new Map(), placeSearches: 2, weatherChecked: false, isCancelled: () => false },
+  )
+  assert.equal(result.response.status, 'error')
+  assert.match(String(result.response.message), /Batas dua pencarian/)
 })
