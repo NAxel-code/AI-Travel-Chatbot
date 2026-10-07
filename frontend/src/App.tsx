@@ -107,6 +107,7 @@ function App() {
   const [input, setInput] = useState('')
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
+  const [chatProgress, setChatProgress] = useState<string | null>(null)
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [preferences, setPreferences] = useState<Preference[]>([])
   const [showPreferences, setShowPreferences] = useState(false)
@@ -198,6 +199,7 @@ function App() {
     setInput('')
     setPageError(null)
     setLastFailedMessage(null)
+    setChatProgress('Menghubungkan ke perencana…')
     setIsLoading(true)
     setMessages((current) => [...current, { role: 'user', content: cleanMessage }, { role: 'model', content: '' }])
 
@@ -219,7 +221,10 @@ function App() {
       }
 
       await readSse(response, (event) => {
-        if (event.type === 'text') {
+        if (event.type === 'progress') {
+          setChatProgress(event.message)
+        } else if (event.type === 'text') {
+          setChatProgress(null)
           setMessages((current) => {
             const last = current.at(-1)
             if (!last || last.role !== 'model') return current
@@ -253,6 +258,7 @@ function App() {
       if (!aborted) setLastFailedMessage(cleanMessage)
     } finally {
       abortRef.current = null
+      setChatProgress(null)
       setIsLoading(false)
     }
   }
@@ -394,10 +400,17 @@ function App() {
             >
               {message.role === 'model' && !message.content ? (
                 <span className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Menyusun jawaban…
+                  <Loader2 className="h-4 w-4 animate-spin" /> {chatProgress || 'Menunggu respons…'}
                 </span>
               ) : message.role === 'model' ? (
-                <Markdown content={message.content} />
+                <>
+                  <Markdown content={message.content} />
+                  {index === messages.length - 1 && isLoading && chatProgress && (
+                    <span className="mt-2 flex items-center gap-2 border-t border-foreground/10 pt-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> {chatProgress}
+                    </span>
+                  )}
+                </>
               ) : (
                 <span className="whitespace-pre-wrap">{message.content}</span>
               )}

@@ -96,8 +96,16 @@ export async function executeAgentTool(
       assertActive(state)
       await env.DB.batch(statements)
       return {
-        response: { status: 'success', itinerary_id: itineraryId },
-        notification: 'Itinerary baru sudah disimpan.',
+        response: {
+          status: 'success',
+          itinerary_id: itineraryId,
+          start_date: args.start_date,
+          end_date: args.end_date,
+          date_adjusted: args.date_adjusted,
+        },
+        notification: args.date_adjusted
+          ? `Tanggal lampau disesuaikan ke ${args.start_date}–${args.end_date}; itinerary sudah disimpan.`
+          : 'Itinerary baru sudah disimpan.',
         itineraryChanged: true,
       }
     }
@@ -162,7 +170,9 @@ export async function executeAgentTool(
       const result = await checkWeather(env.CHAT_HISTORY, args.destination, args.startDate, args.endDate)
       return {
         response: result as Record<string, unknown>,
-        notification: 'Ketersediaan prakiraan cuaca diperiksa melalui Open-Meteo.',
+        notification: args.dateAdjusted
+          ? `Tanggal cuaca disesuaikan ke ${args.startDate}–${args.endDate} dan diperiksa melalui Open-Meteo.`
+          : 'Ketersediaan prakiraan cuaca diperiksa melalui Open-Meteo.',
       }
     }
 

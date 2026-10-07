@@ -4,7 +4,8 @@ Perencana perjalanan berbahasa Indonesia yang mengubah percakapan menjadi itiner
 
 ## Kemampuan
 
-- Jawaban Gemini dikirim bertahap melalui Server-Sent Events (SSE).
+- Jawaban Gemini dan status proses aman dikirim bertahap melalui Server-Sent Events (SSE); raw chain-of-thought internal tidak diekspos.
+- Tanggal lampau otomatis digeser ke kejadian terdekat di masa depan dengan durasi perjalanan tetap.
 - Itinerary terstruktur tersimpan di Cloudflare D1; riwayat chat 30 hari tersimpan di KV.
 - Pencarian tempat nyata melalui Nominatim/OpenStreetMap dengan cache 24 jam.
 - Prakiraan hingga 15 hari melalui Open-Meteo dengan cache 1 jam.
@@ -111,6 +112,8 @@ npm test
 npm run build
 ```
 
+Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan backend dan frontend yang sama pada setiap pull request serta setiap push ke `main`.
+
 ## Konfigurasi
 
 ### Backend
@@ -163,6 +166,8 @@ Semua endpoint selain `POST /api/session` memerlukan header `X-Session-Token`.
 Event `/api/chat`:
 
 ```text
+data: {"type":"progress","stage":"places","message":"Mencari tempat nyata dan lokasinya…"}
+
 data: {"type":"text","text":"..."}
 
 data: {"type":"system","message":"..."}

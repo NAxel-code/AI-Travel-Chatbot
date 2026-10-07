@@ -17,3 +17,11 @@ test('SSE reader rejects transport EOF without DONE sentinel', async () => {
   const response = new Response('data: {"type":"text","text":"partial"}\n\n')
   await assert.rejects(() => readSse(response, () => undefined), /terputus sebelum respons selesai/)
 })
+
+
+test('SSE parser exposes safe progress status events', () => {
+  const parser = new SseParser()
+  assert.deepEqual(parser.push('data: {"type":"progress","stage":"places","message":"Mencari tempat nyata…"}\n\n'), [
+    { type: 'progress', stage: 'places', message: 'Mencari tempat nyata…' },
+  ])
+})

@@ -1,6 +1,7 @@
 const encoder = new TextEncoder()
 
 export type SseEvent =
+  | { type: 'progress'; stage: string; message: string }
   | { type: 'text'; text: string }
   | { type: 'system'; message: string }
   | { type: 'function_call'; name: string; status: 'success' }

@@ -9,6 +9,13 @@ import { parseChatRequest, ValidationError } from './validation'
 
 const MODEL_CANDIDATES = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite']
 const MAX_TOOL_ROUNDS = 4
+const TOOL_PROGRESS: Record<string, { stage: string; message: string }> = {
+  save_user_preference: { stage: 'memory', message: 'Menyimpan preferensi perjalanan…' },
+  search_places: { stage: 'places', message: 'Mencari tempat nyata dan lokasinya…' },
+  check_weather: { stage: 'weather', message: 'Memeriksa prakiraan cuaca…' },
+  build_itinerary: { stage: 'itinerary', message: 'Menyusun urutan perjalanan…' },
+  update_itinerary_day: { stage: 'itinerary', message: 'Memperbarui rencana harian…' },
+}
 
 type AgentCall = { name?: string; args?: unknown }
 type CurrentItinerary = {
@@ -157,6 +164,7 @@ export async function chatHandler(c: Context<AppEnv>) {
           controller.enqueue(encodeSse(event))
         }
         let fullText = ''
+        send({ type: 'progress', stage: 'understanding', message: 'Memahami detail perjalananmu…' })
         const toolState: AgentToolState = { groundedPlaces: new Map(), isCancelled }
         for (const item of currentItinerary?.items || []) {
           if (item.source_url && item.location_name && item.address && item.latitude != null && item.longitude != null) {
@@ -221,6 +229,8 @@ export async function chatHandler(c: Context<AppEnv>) {
             for (const call of calls) {
               ensureActive()
               const name = call.name || 'unknown'
+              const progress = TOOL_PROGRESS[name]
+              if (progress) send({ type: 'progress', ...progress })
               const result = hasLookupAndWrite && (name === 'build_itinerary' || name === 'update_itinerary_day')
                 ? { response: { status: 'error', message: 'Use lookup results, then call the itinerary tool in the next round.' } }
                 : await executeAgentTool(c.env, sessionId, name, call.args, toolState)

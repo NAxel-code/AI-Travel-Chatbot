@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { encodeSse } from '../src/sse.ts'
-import { parseBuildItinerary, parseChatRequest, ValidationError } from '../src/validation.ts'
+import { parseBuildItinerary, parseChatRequest, parseWeatherSearch, ValidationError } from '../src/validation.ts'
 
 test('SSE payload remains valid when text contains quotes and newlines', () => {
   const output = new TextDecoder().decode(encodeSse({ type: 'system', message: 'budget = "hemat"\naman' }))
@@ -103,4 +103,28 @@ test('cancelled and unverified tool writes never reach D1', async () => {
   )
   assert.equal(unverified.response.status, 'error')
   assert.equal(databaseTouched, false)
+})
+
+
+test('past itinerary and weather dates move to the nearest future occurrence', () => {
+  const now = new Date('2026-10-07T12:00:00Z')
+  const itinerary = parseBuildItinerary({
+    destination: 'Bandung',
+    start_date: '2024-09-10',
+    end_date: '2024-09-12',
+    timezone: 'Asia/Jakarta',
+    items: [{ day_number: 1, time_slot: '09:00', title: 'Museum' }],
+  }, now)
+  assert.equal(itinerary.start_date, '2027-09-10')
+  assert.equal(itinerary.end_date, '2027-09-12')
+  assert.equal(itinerary.date_adjusted, true)
+
+  const weather = parseWeatherSearch({
+    destination: 'Bandung',
+    start_date: '2024-12-20',
+    end_date: '2024-12-21',
+  }, now)
+  assert.equal(weather.startDate, '2026-12-20')
+  assert.equal(weather.endDate, '2026-12-21')
+  assert.equal(weather.dateAdjusted, true)
 })

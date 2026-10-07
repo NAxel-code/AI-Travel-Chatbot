@@ -2,6 +2,7 @@ import type { BuildItineraryInput, ItineraryItemInput, UpdateItineraryDayInput }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const DAY_MS = 86_400_000
 
 export class ValidationError extends Error {}
 
@@ -13,13 +14,9 @@ function asRecord(value: unknown, label: string): Record<string, unknown> {
 }
 
 function requiredString(value: unknown, label: string, maxLength: number): string {
-  if (typeof value !== 'string' || !value.trim()) {
-    throw new ValidationError(`${label} wajib diisi.`)
-  }
+  if (typeof value !== 'string' || !value.trim()) throw new ValidationError(`${label} wajib diisi.`)
   const result = value.trim()
-  if (result.length > maxLength) {
-    throw new ValidationError(`${label} maksimal ${maxLength} karakter.`)
-  }
+  if (result.length > maxLength) throw new ValidationError(`${label} maksimal ${maxLength} karakter.`)
   return result
 }
 
@@ -36,6 +33,30 @@ function parseIsoDate(value: unknown, label: string): string {
     throw new ValidationError(`${label} tidak valid.`)
   }
   return date
+}
+
+function dateInYear(monthDay: string, year: number): string | null {
+  const candidate = `${year}-${monthDay}`
+  const parsed = new Date(`${candidate}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === candidate ? candidate : null
+}
+
+function adjustRangeToFuture(startDate: string, endDate: string, now: Date) {
+  const duration = Math.floor((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / DAY_MS) + 1
+  if (duration < 1 || duration > 31) throw new ValidationError('Rentang itinerary harus 1-31 hari.')
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10)
+  if (startDate >= today) return { startDate, endDate, duration, dateAdjusted: false }
+
+  const monthDay = startDate.slice(5)
+  let year = now.getUTCFullYear()
+  let adjustedStart = dateInYear(monthDay, year)
+  while (!adjustedStart || adjustedStart < today) {
+    year += 1
+    adjustedStart = dateInYear(monthDay, year)
+  }
+  const adjustedEnd = new Date(Date.parse(`${adjustedStart}T00:00:00Z`) + (duration - 1) * DAY_MS)
+    .toISOString().slice(0, 10)
+  return { startDate: adjustedStart, endDate: adjustedEnd, duration, dateAdjusted: true }
 }
 
 function optionalCoordinate(value: unknown, label: string, min: number, max: number): number | null {
@@ -63,7 +84,6 @@ function parseItem(value: unknown, forcedDay?: number): ItineraryItemInput {
   if (!Number.isInteger(dayNumber) || Number(dayNumber) < 1 || Number(dayNumber) > 31) {
     throw new ValidationError('day_number harus berupa bilangan 1-31.')
   }
-
   return {
     day_number: Number(dayNumber),
     time_slot: requiredString(item.time_slot, 'time_slot', 40),
@@ -79,9 +99,7 @@ function parseItem(value: unknown, forcedDay?: number): ItineraryItemInput {
 }
 
 export function validateSessionId(value: unknown): string {
-  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
-    throw new ValidationError('session_id tidak valid.')
-  }
+  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) throw new ValidationError('session_id tidak valid.')
   return value
 }
 
@@ -93,13 +111,12 @@ export function parseChatRequest(value: unknown): { sessionId: string; message: 
   }
 }
 
-export function parseBuildItinerary(value: unknown): BuildItineraryInput {
+export function parseBuildItinerary(value: unknown, now = new Date()): BuildItineraryInput {
   const args = asRecord(value, 'Argumen build_itinerary')
   const destination = requiredString(args.destination, 'destination', 160)
-  const startDate = parseIsoDate(args.start_date, 'start_date')
-  const endDate = parseIsoDate(args.end_date, 'end_date')
-  const duration = Math.floor((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86_400_000) + 1
-  if (duration < 1 || duration > 31) throw new ValidationError('Rentang itinerary harus 1-31 hari.')
+  const originalStartDate = parseIsoDate(args.start_date, 'start_date')
+  const originalEndDate = parseIsoDate(args.end_date, 'end_date')
+  const adjusted = adjustRangeToFuture(originalStartDate, originalEndDate, now)
   if (!Array.isArray(args.items) || args.items.length < 1 || args.items.length > 80) {
     throw new ValidationError('items harus berisi 1-80 aktivitas.')
   }
@@ -108,10 +125,17 @@ export function parseBuildItinerary(value: unknown): BuildItineraryInput {
     throw new ValidationError('timezone harus berupa zona waktu IANA, misalnya Asia/Jakarta.')
   }
   const items = args.items.map((item) => parseItem(item))
-  if (items.some((item) => item.day_number > duration)) {
+  if (items.some((item) => item.day_number > adjusted.duration)) {
     throw new ValidationError('day_number tidak boleh melebihi durasi perjalanan.')
   }
-  return { destination, start_date: startDate, end_date: endDate, timezone, items }
+  return {
+    destination,
+    start_date: adjusted.startDate,
+    end_date: adjusted.endDate,
+    timezone,
+    items,
+    date_adjusted: adjusted.dateAdjusted,
+  }
 }
 
 export function parseUpdateItineraryDay(value: unknown): UpdateItineraryDayInput {
@@ -129,9 +153,7 @@ export function parseUpdateItineraryDay(value: unknown): UpdateItineraryDayInput
 export function parsePreference(value: unknown): { category: string; value: string } {
   const args = asRecord(value, 'Argumen save_user_preference')
   const category = requiredString(args.category, 'category', 60).toLowerCase().replace(/\s+/g, '_')
-  if (!/^[a-z0-9_-]+$/.test(category)) {
-    throw new ValidationError('category hanya boleh berisi huruf, angka, _ atau -.')
-  }
+  if (!/^[a-z0-9_-]+$/.test(category)) throw new ValidationError('category hanya boleh berisi huruf, angka, _ atau -.')
   return { category, value: requiredString(args.value, 'value', 300) }
 }
 
@@ -146,14 +168,15 @@ export function parsePlaceSearch(value: unknown): { query: string; destination: 
   }
 }
 
-export function parseWeatherSearch(value: unknown): { destination: string; startDate: string; endDate: string } {
+export function parseWeatherSearch(value: unknown, now = new Date()) {
   const args = asRecord(value, 'Argumen check_weather')
-  const startDate = parseIsoDate(args.start_date, 'start_date')
-  const endDate = parseIsoDate(args.end_date, 'end_date')
-  if (endDate < startDate) throw new ValidationError('end_date tidak boleh sebelum start_date.')
+  const originalStartDate = parseIsoDate(args.start_date, 'start_date')
+  const originalEndDate = parseIsoDate(args.end_date, 'end_date')
+  const adjusted = adjustRangeToFuture(originalStartDate, originalEndDate, now)
   return {
     destination: requiredString(args.destination, 'destination', 160),
-    startDate,
-    endDate,
+    startDate: adjusted.startDate,
+    endDate: adjusted.endDate,
+    dateAdjusted: adjusted.dateAdjusted,
   }
 }

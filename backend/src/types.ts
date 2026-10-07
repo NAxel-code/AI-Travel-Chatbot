@@ -36,6 +36,7 @@ export type BuildItineraryInput = {
   end_date: string
   timezone: string
   items: ItineraryItemInput[]
+  date_adjusted: boolean
 }
 
 export type UpdateItineraryDayInput = {
