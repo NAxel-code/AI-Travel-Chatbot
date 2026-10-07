@@ -2,11 +2,19 @@ name = "travel-planner-backend"
 main = "src/index.ts"
 compatibility_date = "2024-03-20"
 
+[vars]
+# Replace this with the deployed frontend origin before production deployment.
+# Multiple origins can be comma-separated.
+FRONTEND_ORIGIN = "http://localhost:5173"
+
 [[kv_namespaces]]
 binding = "CHAT_HISTORY"
-id = "mock-id-local-dev-only" # will be auto-handled locally
+# Local development uses Miniflare state. Replace this placeholder with a real
+# namespace ID before deploying.
+id = "mock-id-local-dev-only"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "travel-db"
+# Replace this placeholder with the ID returned by `wrangler d1 create`.
 database_id = "mock-id-local-dev-only"

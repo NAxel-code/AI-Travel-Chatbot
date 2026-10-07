@@ -1,308 +1,225 @@
-# AI Travel Planner Chatbot
+# Rute — AI Travel Planner
 
-Chatbot perencana perjalanan berbasis AI. Pengguna mengobrol dengan asisten (Bahasa Indonesia), lalu AI otomatis menyusun **itinerary multi-hari** yang terstruktur dan menyimpannya ke database cloud. Itinerary bisa diekspor ke **kalender (.ics)** atau dicetak sebagai **PDF**.
+Perencana perjalanan berbahasa Indonesia yang mengubah percakapan menjadi itinerary multi-hari. Aplikasi mencari lokasi nyata melalui OpenStreetMap, memeriksa prakiraan cuaca yang tersedia, menyimpan preferensi pengguna, dan memungkinkan penyesuaian per hari melalui chat.
 
-Dibangun dengan React + Vite di sisi frontend dan Cloudflare Workers (Hono) + D1 + KV + Google Gemini di sisi backend.
+## Kemampuan
 
----
+- Jawaban Gemini dikirim bertahap melalui Server-Sent Events (SSE).
+- Itinerary terstruktur tersimpan di Cloudflare D1; riwayat chat 30 hari tersimpan di KV.
+- Pencarian tempat nyata melalui Nominatim/OpenStreetMap dengan cache 24 jam.
+- Prakiraan hingga 15 hari melalui Open-Meteo dengan cache 1 jam.
+- AI dapat membuat itinerary baru atau mengganti satu hari tertentu.
+- Preferensi jangka panjang dapat dilihat dan dihapus pengguna.
+- Ekspor kalender `.ics` menggunakan waktu aktivitas dan durasi 90 menit; itinerary dapat dicetak atau disimpan sebagai PDF melalui browser.
+- Session token anonim, pembatasan origin, validasi input, dan rate limit dasar melindungi data dan kuota model.
+- Tampilan responsif untuk desktop dan perangkat bergerak.
 
-## Daftar Isi
-- [Fitur](#fitur)
-- [Arsitektur](#arsitektur)
-- [Alur Aplikasi (Flow)](#alur-aplikasi-flow)
-- [Struktur Proyek](#struktur-proyek)
-- [Teknologi](#teknologi)
-- [Prasyarat](#prasyarat)
-- [Setup & Menjalankan Lokal](#setup--menjalankan-lokal)
-- [Variabel Lingkungan](#variabel-lingkungan)
-- [Skema Database](#skema-database)
-- [Referensi API](#referensi-api)
-- [Deploy](#deploy)
-- [Troubleshooting](#troubleshooting)
-
----
-
-## Fitur
-- 💬 Chat percakapan dengan AI travel planner (streaming jawaban via SSE).
-- 🧠 **Function calling** Gemini: AI memutuskan sendiri kapan cukup informasi untuk menyusun itinerary.
-- 🗓️ Itinerary multi-hari terstruktur (hari, waktu, judul, deskripsi, kategori).
-- ☁️ Penyimpanan cloud: itinerary di **Cloudflare D1** (SQLite), riwayat chat di **Cloudflare KV**.
-- 📅 Ekspor ke kalender (`.ics`) dan cetak PDF.
-- 🔄 Retry + fallback model otomatis saat model Gemini sedang overload (503).
-
----
+Aplikasi tidak menyediakan harga penerbangan, hotel, tiket, jam buka, atau ketersediaan real-time. Informasi tersebut harus diverifikasi sebelum perjalanan.
 
 ## Arsitektur
 
 ```mermaid
 graph LR
-    U[Pengguna / Browser] -->|HTTP + SSE| FE[Frontend<br/>React + Vite<br/>:5173]
-    FE -->|POST /api/chat<br/>GET /api/itinerary/:id| BE[Backend<br/>Cloudflare Workers + Hono<br/>:8787]
-    BE -->|generateContentStream<br/>+ function calling| G[Google Gemini API]
-    BE -->|simpan / baca itinerary| D1[(Cloudflare D1<br/>SQLite)]
-    BE -->|simpan / baca riwayat chat| KV[(Cloudflare KV)]
+  Browser[React + Vite] -->|JSON + SSE| Worker[Cloudflare Worker + Hono]
+  Worker --> Gemini[Google Gemini]
+  Worker --> D1[(D1: itinerary, preferensi, rate limit)]
+  Worker --> KV[(KV: riwayat dan cache)]
+  Worker --> OSM[Nominatim / OpenStreetMap]
+  Worker --> Weather[Open-Meteo]
 ```
 
-Komponen utama:
-- **Frontend** — antarmuka chat + panel itinerary. Membaca stream SSE dari backend dan me-render pesan serta itinerary secara real-time.
-- **Backend** — API Hono di atas Cloudflare Workers. Mengorkestrasi Gemini, D1, dan KV.
-- **Gemini** — model bahasa yang menghasilkan balasan dan memicu tool `build_itinerary`.
-- **D1** — database relasional untuk `sessions`, `itineraries`, `itinerary_items`.
-- **KV** — key-value store untuk riwayat percakapan per sesi.
+Alur chat:
 
----
+1. Browser meminta session ID dan token acak dari `POST /api/session`.
+2. Worker menyimpan hash token; token mentah hanya disimpan di browser.
+3. Pesan, riwayat, preferensi, dan itinerary aktif dikirim ke Gemini.
+4. Gemini dapat mencari tempat/cuaca, menyimpan preferensi, membuat itinerary, atau mengganti satu hari. Maksimum empat putaran tool per pesan.
+5. D1 menyimpan perubahan secara atomik melalui `DB.batch()` dan frontend mengambil ulang itinerary.
 
-## Alur Aplikasi (Flow)
+## Struktur penting
 
-### 1. Alur percakapan & pembuatan itinerary
-
-```mermaid
-sequenceDiagram
-    participant U as Pengguna
-    participant FE as Frontend
-    participant BE as Backend (Worker)
-    participant KV as KV (riwayat)
-    participant G as Gemini
-    participant D1 as D1 (database)
-
-    U->>FE: Ketik pesan (mis. "liburan ke Bali 3 hari")
-    FE->>BE: POST /api/chat { session_id, message }
-    BE->>KV: Ambil riwayat chat sesi
-    KV-->>BE: history[]
-    BE->>G: generateContentStream(history + systemPrompt + tools)
-    alt AI masih butuh info
-        G-->>BE: Stream teks (pertanyaan lanjutan)
-        BE-->>FE: SSE {type:"text"} (streaming)
-        FE-->>U: Tampilkan jawaban AI
-    else AI cukup info -> panggil tool
-        G-->>BE: functionCall build_itinerary(args)
-        BE->>D1: INSERT session + itinerary + items
-        BE-->>FE: SSE {type:"function_call", status:"success"}
-        BE->>G: generateContent (konfirmasi setelah tool)
-        G-->>BE: Teks konfirmasi
-        BE-->>FE: SSE {type:"text"} + [DONE]
-        FE->>BE: GET /api/itinerary/:session_id (refetch)
-        BE->>D1: SELECT itinerary + items
-        D1-->>BE: data itinerary
-        BE-->>FE: JSON itinerary
-        FE-->>U: Render itinerary di panel kanan
-    end
-    BE->>KV: Simpan riwayat terbaru (maks. 20 pesan)
+```text
+backend/
+  migrations/                          migrasi database lama
+  src/ai.ts                            prompt dan deklarasi tool
+  src/chat.ts                          Gemini, fallback, SSE, orkestrasi tool
+  src/agent-tools.ts                   eksekusi dan penyimpanan tool
+  src/travel-data.ts                   OpenStreetMap dan Open-Meteo
+  src/session.ts                       session, history, preference, rate limit
+  src/validation.ts                    validasi request dan argumen model
+  schema.sql                           reset skema untuk development baru
+frontend/
+  src/App.tsx                          chat, itinerary, preferensi, status UI
+  src/lib/sse.ts                       parser SSE tahan pemisahan network chunk
+  src/lib/calendar.ts                  generator iCalendar
+  src/components/Markdown.tsx          renderer Markdown tanpa raw HTML
 ```
-
-### 2. Logika pemilihan model (retry + fallback)
-
-Saat memanggil Gemini, backend mencoba daftar model secara berurutan. Jika sebuah model mengembalikan **503 (overload)**, ia retry sekali, lalu jatuh ke model berikutnya.
-
-```mermaid
-flowchart TD
-    A[Mulai: daftar MODEL_CANDIDATES] --> B{Coba model ke-i}
-    B -->|Sukses 200| S[Pakai model ini untuk stream + konfirmasi]
-    B -->|Error 503 / UNAVAILABLE| R{Percobaan pertama?}
-    R -->|Ya| W[Tunggu 800ms lalu retry model sama] --> B
-    R -->|Tidak| N[Lanjut ke model berikutnya]
-    B -->|Error lain 404 dst| N
-    N --> C{Masih ada kandidat?}
-    C -->|Ya| B
-    C -->|Tidak| E[Lempar error terakhir -> 500]
-```
-
----
-
-## Struktur Proyek
-
-```
-.
-├── .gitignore
-├── README.md
-├── backend/                 # Cloudflare Workers (Hono)
-│   ├── src/
-│   │   ├── index.ts         # Entry point + routing + CORS
-│   │   ├── chat.ts          # Handler /api/chat (Gemini, streaming, D1, KV)
-│   │   ├── itinerary.ts     # Handler /api/itinerary/:session_id
-│   │   └── ai.ts            # System prompt + deklarasi tool build_itinerary
-│   ├── schema.sql           # Skema tabel D1
-│   ├── wrangler.toml        # Konfigurasi Worker, binding D1 & KV
-│   ├── package.json
-│   └── .dev.vars            # (LOKAL, tidak di-commit) GEMINI_API_KEY
-└── frontend/                # React + Vite + Tailwind
-    ├── src/
-    │   ├── App.tsx          # UI chat + panel itinerary + ekspor ICS/PDF
-    │   ├── main.tsx
-    │   ├── index.css        # Tailwind + design tokens
-    │   └── lib/utils.ts     # helper cn()
-    ├── index.html
-    ├── vite.config.ts
-    ├── tailwind.config.cjs
-    ├── postcss.config.cjs
-    └── package.json
-```
-
----
-
-## Teknologi
-
-| Lapisan   | Teknologi |
-|-----------|-----------|
-| Frontend  | React 19, Vite, TypeScript, Tailwind CSS v3, lucide-react |
-| Backend   | Cloudflare Workers, Hono, TypeScript |
-| AI        | Google Gemini (`@google/genai`) dengan function calling |
-| Database  | Cloudflare D1 (SQLite) |
-| Store     | Cloudflare KV (riwayat chat) |
-| Tooling   | Wrangler, tsx, oxlint |
-
----
 
 ## Prasyarat
-- Node.js 18+ (diuji pada v24)
-- Akun Cloudflare (untuk `wrangler`) dan Wrangler CLI (via `npx`)
-- Google Gemini API key — dapatkan di https://aistudio.google.com/apikey
 
----
+- Node.js 24+
+- Akun Cloudflare dan Google Gemini API key
+- Dua terminal untuk menjalankan backend dan frontend
 
-## Setup & Menjalankan Lokal
+## Menjalankan lokal
 
 ### 1. Backend
 
-```bash
-cd backend
+```powershell
+Set-Location backend
 npm install
-
-# Terapkan skema ke database D1 lokal
+Copy-Item .dev.vars.example .dev.vars
+# Isi GEMINI_API_KEY di .dev.vars
 npx wrangler d1 execute travel-db --local --file=schema.sql
-
-# Buat file .dev.vars berisi API key (JANGAN commit)
-# Isi: GEMINI_API_KEY=your_key_here
-
-# Jalankan Worker lokal di port 8787
-npx wrangler dev --port 8787
-```
-
-Backend akan berjalan di `http://localhost:8787`.
-
-### 2. Frontend
-
-```bash
-cd frontend
-npm install
 npm run dev
 ```
 
-Frontend akan berjalan di `http://localhost:5173` dan sudah dikonfigurasi memanggil backend di `http://localhost:8787` (lihat `API_BASE` di `src/App.tsx`).
+> **Peringatan:** `schema.sql` adalah reset development. Empat tabel aplikasi akan dihapus beserta datanya sebelum dibuat ulang. Jangan jalankan terhadap database yang datanya ingin dipertahankan.
 
-Buka `http://localhost:5173` di browser.
+Worker berjalan di `http://localhost:8787`.
 
----
+Untuk database lama yang memakai skema awal, jangan jalankan `schema.sql`. Terapkan migrasi sekali. Migrasi memberi itinerary lama timezone `UTC`; buat ulang itinerary lama sebelum ekspor kalender jika zona tujuan berbeda.
 
-## Variabel Lingkungan
-
-| Variabel         | Lokasi (lokal)        | Deskripsi |
-|------------------|-----------------------|-----------|
-| `GEMINI_API_KEY` | `backend/.dev.vars`   | API key Google Gemini. Wajib untuk endpoint `/api/chat`. |
-
-> ⚠️ **Keamanan:** `.dev.vars` sudah masuk `.gitignore` dan tidak boleh di-commit. Untuk produksi gunakan `npx wrangler secret put GEMINI_API_KEY` (jangan menaruh key di `wrangler.toml`).
-
----
-
-## Skema Database
-
-```sql
-CREATE TABLE sessions (
-  id TEXT PRIMARY KEY,
-  created_at INTEGER NOT NULL
-);
-
-CREATE TABLE itineraries (
-  id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  destination TEXT NOT NULL,
-  start_date TEXT,
-  end_date TEXT,
-  created_at INTEGER NOT NULL,
-  FOREIGN KEY (session_id) REFERENCES sessions(id)
-);
-
-CREATE TABLE itinerary_items (
-  id TEXT PRIMARY KEY,
-  itinerary_id TEXT NOT NULL,
-  day_number INTEGER NOT NULL,
-  time_slot TEXT,
-  title TEXT NOT NULL,
-  description TEXT,
-  category TEXT,
-  FOREIGN KEY (itinerary_id) REFERENCES itineraries(id)
-);
+```powershell
+npx wrangler d1 execute travel-db --local --file=migrations/0001_secure_sessions_and_grounded_places.sql
 ```
 
----
+Gunakan `--remote` sebagai pengganti `--local` untuk database deployment lama.
 
-## Referensi API
+### 2. Frontend
 
-### `GET /`
-Health check. Mengembalikan teks `AI Travel Planner API is running!`.
-
-### `POST /api/chat`
-Kirim pesan chat. Membalas **Server-Sent Events (SSE)**.
-
-Request body:
-```json
-{ "session_id": "uuid", "message": "Halo, aku mau liburan ke Bali 3 hari" }
+```powershell
+Set-Location frontend
+npm install
+Copy-Item .env.example .env.local
+npm run dev
 ```
 
-Event SSE:
-- `data: {"type":"text","text":"..."}` — potongan teks jawaban.
-- `data: {"type":"function_call","name":"build_itinerary","status":"success"}` — itinerary telah dibuat.
-- `data: [DONE]` — akhir stream.
+Frontend berjalan di `http://localhost:5173`. Nilai default `VITE_API_BASE` sudah menunjuk ke backend lokal.
 
-### `GET /api/itinerary/:session_id`
-Ambil itinerary terbaru untuk sebuah sesi.
+### Verifikasi
 
-Response:
-```json
-{
-  "data": {
-    "id": "uuid",
-    "destination": "Bali",
-    "start_date": "2026-10-01",
-    "end_date": "2026-10-03",
-    "items": [
-      { "day_number": 1, "time_slot": "Pagi", "title": "...", "description": "...", "category": "Sightseeing" }
-    ]
-  }
-}
+```powershell
+# backend
+npm run check
+npm test
+npx wrangler deploy --dry-run
+
+# frontend
+npm run lint
+npm test
+npm run build
 ```
-Jika belum ada itinerary: `{ "data": null }`.
 
----
+## Konfigurasi
+
+### Backend
+
+| Nilai | Lokasi | Keterangan |
+|---|---|---|
+| `GEMINI_API_KEY` | `backend/.dev.vars` / Wrangler secret | Wajib untuk chat. |
+| `FRONTEND_ORIGIN` | `backend/wrangler.toml` | Origin yang diizinkan CORS. Beberapa origin dipisahkan koma. |
+| D1 `database_id` | `backend/wrangler.toml` | Ganti placeholder sebelum deploy. |
+| KV `id` | `backend/wrangler.toml` | Ganti placeholder sebelum deploy. |
+
+Jangan commit `.dev.vars`. Untuk produksi:
+
+```powershell
+npx wrangler secret put GEMINI_API_KEY
+```
+
+### Frontend
+
+| Nilai | Lokasi | Keterangan |
+|---|---|---|
+| `VITE_API_BASE` | `frontend/.env.local` / platform build env | URL Worker dengan suffix `/api`, tanpa trailing slash. |
+
+Contoh produksi: `VITE_API_BASE=https://travel-planner.example.workers.dev/api`.
+
+## Skema data
+
+- `sessions`: ID session, hash access token, waktu dibuat.
+- `rate_limits`: counter fixed-window atomik untuk pembatasan session dan chat.
+- `user_preferences`: satu nilai per kategori/session melalui constraint `UNIQUE(session_id, preference_category)`.
+- `itineraries`: tujuan, rentang tanggal, dan zona waktu IANA.
+- `itinerary_items`: hari, waktu, aktivitas, kategori, alamat, koordinat, dan URL sumber OpenStreetMap.
+
+Pembuatan itinerary dan penggantian satu hari menggunakan batch D1 agar tidak meninggalkan data parsial.
+
+## API
+
+Semua endpoint selain `POST /api/session` memerlukan header `X-Session-Token`.
+
+| Method | Endpoint | Fungsi |
+|---|---|---|
+| `GET` | `/` | Health response JSON. |
+| `POST` | `/api/session` | Membuat session; menerima `session_id` opsional untuk klaim satu kali session lama. |
+| `POST` | `/api/chat` | Mengirim `{ session_id, message }`; respons SSE. |
+| `GET` | `/api/history/:session_id` | Mengambil maksimum 20 pesan terakhir. |
+| `GET` | `/api/itinerary/:session_id` | Mengambil itinerary terbaru. |
+| `GET` | `/api/preferences/:session_id` | Mengambil preferensi tersimpan. |
+| `DELETE` | `/api/preferences/:session_id/:category` | Menghapus satu preferensi. |
+
+Event `/api/chat`:
+
+```text
+data: {"type":"text","text":"..."}
+
+data: {"type":"system","message":"..."}
+
+data: {"type":"function_call","name":"build_itinerary","status":"success"}
+
+data: {"type":"error","message":"..."}
+
+data: [DONE]
+```
+
+Payload event selalu dibuat dengan `JSON.stringify`; parser frontend mempertahankan event yang terpotong di antara network chunk dan berhenti setelah `[DONE]`.
+
+## Model dan fallback
+
+Urutan model saat ini:
+
+1. `gemini-3.6-flash`
+2. `gemini-flash-latest`
+3. `gemini-2.5-flash-lite`
+
+Error sementara `429`/`503` dicoba ulang sekali lalu berpindah model. Model `404` dilewati. Error autentikasi, izin, safety, atau request invalid langsung dikembalikan dan tidak disamarkan sebagai fallback.
 
 ## Deploy
 
-Backend (Cloudflare Workers):
-```bash
-cd backend
-# Buat resource produksi & update id di wrangler.toml
+1. Buat D1 dan KV produksi, lalu ganti kedua placeholder ID di `backend/wrangler.toml`.
+2. Ubah `FRONTEND_ORIGIN` menjadi origin frontend produksi.
+3. Terapkan `schema.sql` hanya pada database produksi baru.
+4. Simpan `GEMINI_API_KEY` sebagai secret dan deploy Worker.
+5. Set `VITE_API_BASE` di platform frontend, lalu build `frontend/dist`.
+
+```powershell
+Set-Location backend
 npx wrangler d1 create travel-db
 npx wrangler kv namespace create CHAT_HISTORY
 npx wrangler d1 execute travel-db --remote --file=schema.sql
 npx wrangler secret put GEMINI_API_KEY
-npx wrangler deploy
+npm run deploy
+
+Set-Location ..\frontend
+npm run build
 ```
 
-Frontend (mis. Cloudflare Pages / Vercel / Netlify):
-```bash
-cd frontend
-npm run build   # output di dist/
-```
-Set `API_BASE` di `src/App.tsx` ke URL Worker produksi sebelum build.
+## Batas keamanan dan layanan eksternal
 
----
+- Session saat ini bersifat anonim, bukan akun pengguna. Token melindungi session yang diketahui, tetapi aplikasi publik berkuota tinggi sebaiknya menambahkan login atau Cloudflare Turnstile.
+- Rate limit menggunakan counter fixed-window atomik di D1 (12 pesan/session/menit dan 30 pesan/IP/menit). Ini perlindungan dasar; deployment berkuota tinggi tetap sebaiknya memakai gateway/Turnstile dan kontrol abuse khusus.
+- Public Nominatim memiliki batas absolut 1 request/detik dan ditujukan untuk penggunaan ringan. Hasil dicache 24 jam. Untuk produksi bervolume, gunakan instance Nominatim sendiri atau provider geocoding komersial sesuai [usage policy OSMF](https://operations.osmfoundation.org/policies/nominatim/).
+- Open-Meteo tanpa API key ditujukan untuk penggunaan non-komersial; periksa paket/lisensi yang sesuai sebelum penggunaan komersial. Lihat [dokumentasi Open-Meteo](https://open-meteo.com/en/docs/).
 
 ## Troubleshooting
 
-| Gejala | Penyebab | Solusi |
-|--------|----------|--------|
-| Frontend menampilkan "terjadi kesalahan koneksi" | Backend error/mati | Pastikan `wrangler dev` jalan di :8787 |
-| Respons 500 dengan pesan `GEMINI_API_KEY is not configured` | Key belum di-set | Isi `backend/.dev.vars`, restart wrangler |
-| Respons 500 `... model ... no longer available` (404) | Nama model usang | Perbarui daftar model di `backend/src/chat.ts` |
-| Respons 500 `high demand` (503) | Model Gemini sedang overload | Sudah ditangani via retry/fallback; coba lagi beberapa saat |
-| Itinerary tidak muncul setelah AI bilang sudah dibuat | Skema D1 belum diterapkan | Jalankan `wrangler d1 execute ... --file=schema.sql` |
+| Gejala | Tindakan |
+|---|---|
+| `no such column: access_token_hash` | Terapkan migrasi untuk database lama atau reset database development dengan `schema.sql`. |
+| Request ditolak CORS | Samakan `FRONTEND_ORIGIN` dengan origin browser, termasuk port. |
+| Frontend tetap memanggil localhost | Set `VITE_API_BASE` sebelum `npm run build`. |
+| Status 401 setelah upgrade | Browser otomatis membuat session baru jika token lama tidak dapat diklaim. |
+| Status 429 | Tunggu waktu pada header `Retry-After`; jangan menambah fallback model. |
+| Data tempat/cuaca gagal | Tool akan memberi hasil error ke Gemini; periksa koneksi dan batas provider. |
