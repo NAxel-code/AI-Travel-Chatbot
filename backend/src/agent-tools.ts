@@ -18,6 +18,8 @@ type ToolResult = {
 
 export type AgentToolState = {
   groundedPlaces: Map<string, GroundedPlace>
+  placeSearches: number
+  weatherChecked: boolean
   isCancelled: () => boolean
 }
 
@@ -156,6 +158,10 @@ export async function executeAgentTool(
     }
 
     if (name === 'search_places') {
+      if (state.placeSearches >= 2) {
+        return { response: { status: 'error', message: 'Batas dua pencarian tempat per pesan sudah tercapai. Gunakan hasil yang tersedia.' } }
+      }
+      state.placeSearches += 1
       const args = parsePlaceSearch(rawArgs)
       const result = await searchPlaces(env.CHAT_HISTORY, args.query, args.destination, args.limit)
       for (const place of result.places) state.groundedPlaces.set(place.source_url, place)
@@ -166,6 +172,10 @@ export async function executeAgentTool(
     }
 
     if (name === 'check_weather') {
+      if (state.weatherChecked) {
+        return { response: { status: 'error', message: 'Cuaca sudah diperiksa. Gunakan hasil yang tersedia.' } }
+      }
+      state.weatherChecked = true
       const args = parseWeatherSearch(rawArgs)
       const result = await checkWeather(env.CHAT_HISTORY, args.destination, args.startDate, args.endDate)
       return {

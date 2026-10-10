@@ -1,5 +1,5 @@
 import type { Context } from 'hono'
-import { GoogleGenAI } from '@google/genai'
+import { FunctionCallingConfigMode, GoogleGenAI } from '@google/genai'
 import { executeAgentTool, type AgentToolState } from './agent-tools'
 import { functionDeclarations, getSystemPrompt } from './ai'
 import { encodeSse, type SseEvent } from './sse'
@@ -7,8 +7,11 @@ import { consumeRateLimit, isAuthorized } from './session'
 import type { AppEnv, ChatMessage, ItineraryItemInput, Preference } from './types'
 import { parseChatRequest, ValidationError } from './validation'
 
-const MODEL_CANDIDATES = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite']
+const MODEL_CANDIDATES = ['gemini-3.5-flash-lite', 'gemini-3.8-flash']
 const MAX_TOOL_ROUNDS = 4
+const CHAT_DEADLINE_MS = 60_000
+const MODEL_START_TIMEOUT_MS = 15_000
+const MODEL_RESPONSE_TIMEOUT_MS = 20_000
 const TOOL_PROGRESS: Record<string, { stage: string; message: string }> = {
   save_user_preference: { stage: 'memory', message: 'Menyimpan preferensi perjalanan…' },
   search_places: { stage: 'places', message: 'Mencari tempat nyata dan lokasinya…' },
@@ -27,6 +30,20 @@ type CurrentItinerary = {
   items: ItineraryItemInput[]
 }
 
+export class ModelTimeoutError extends Error {}
+
+export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new ModelTimeoutError(`${label} melewati ${timeoutMs}ms.`)), timeoutMs)
+  })
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 function errorStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined
   const value = (error as { status?: unknown; code?: unknown }).status
@@ -42,7 +59,12 @@ function errorMessage(error: unknown): string {
 
 function isTransient(error: unknown): boolean {
   const status = errorStatus(error)
-  return status === 429 || status === 503 || /RESOURCE_EXHAUSTED|UNAVAILABLE|high demand|overload/i.test(errorMessage(error))
+  const retryable = Boolean(error && typeof error === 'object' && (error as { retryable?: unknown }).retryable)
+  return retryable
+    || error instanceof ModelTimeoutError
+    || status === 429
+    || status === 503
+    || /RESOURCE_EXHAUSTED|UNAVAILABLE|high demand|overload|network connection lost|fetch failed|timed? out/i.test(errorMessage(error))
 }
 
 function isUnavailable(error: unknown): boolean {
@@ -62,7 +84,7 @@ export async function callWithFallback<T>(
         return { result: await call(model), model }
       } catch (error) {
         lastError = error
-        if (isTransient(error) && attempt === 0) {
+        if (isTransient(error) && !(error instanceof ModelTimeoutError) && attempt === 0) {
           await sleep(800)
           continue
         }
@@ -142,19 +164,18 @@ export async function chatHandler(c: Context<AppEnv>) {
     const contents = history.map((entry) => ({ role: entry.role, parts: [{ text: entry.content }] }))
     const systemPrompt = getSystemPrompt(preferencesResult.results || [], currentItinerary)
     const ai = new GoogleGenAI({ apiKey: c.env.GEMINI_API_KEY })
-    let { result: responseStream, model: activeModel } = await callWithFallback((model) =>
-      ai.models.generateContentStream({
-        model,
-        contents,
-        config: { systemInstruction: systemPrompt, tools: [{ functionDeclarations }] },
-      }),
-    )
-
     const requestSignal = c.req.raw.signal
+    const deadline = Date.now() + CHAT_DEADLINE_MS
     let streamCancelled = false
     const isCancelled = () => streamCancelled || requestSignal.aborted
     const ensureActive = () => {
       if (isCancelled()) throw new DOMException('Request cancelled', 'AbortError')
+      if (Date.now() >= deadline) throw new ModelTimeoutError('Batas waktu chat terlampaui.')
+    }
+    const timebox = <T>(promise: Promise<T>, maximumMs: number, label: string) => {
+      const remaining = deadline - Date.now()
+      if (remaining <= 0) return Promise.reject<T>(new ModelTimeoutError('Batas waktu chat terlampaui.'))
+      return withTimeout(promise, Math.min(maximumMs, remaining), label)
     }
 
     const stream = new ReadableStream({
@@ -165,7 +186,7 @@ export async function chatHandler(c: Context<AppEnv>) {
         }
         let fullText = ''
         send({ type: 'progress', stage: 'understanding', message: 'Memahami detail perjalananmu…' })
-        const toolState: AgentToolState = { groundedPlaces: new Map(), isCancelled }
+        const toolState: AgentToolState = { groundedPlaces: new Map(), placeSearches: 0, weatherChecked: false, isCancelled }
         for (const item of currentItinerary?.items || []) {
           if (item.source_url && item.location_name && item.address && item.latitude != null && item.longitude != null) {
             toolState.groundedPlaces.set(item.source_url, {
@@ -179,11 +200,23 @@ export async function chatHandler(c: Context<AppEnv>) {
           }
         }
 
-        async function consumeInitialStream(currentStream: typeof responseStream) {
+        async function startModelStream(candidates?: string[]) {
+          return callWithFallback((model) => timebox(ai.models.generateContentStream({
+            model,
+            contents,
+            config: { systemInstruction: systemPrompt, tools: [{ functionDeclarations }] },
+          }), MODEL_START_TIMEOUT_MS, `Memulai model ${model}`), candidates)
+        }
+
+        async function consumeInitialStream(currentStream: AsyncIterable<any>) {
           let calls: AgentCall[] | undefined
           let modelContent: any
-          for await (const chunk of currentStream) {
+          const iterator = currentStream[Symbol.asyncIterator]()
+          while (true) {
             ensureActive()
+            const next = await timebox(iterator.next(), MODEL_RESPONSE_TIMEOUT_MS, 'Menunggu respons model')
+            if (next.done) break
+            const chunk = next.value
             const chunkCalls = chunk.functionCalls as AgentCall[] | undefined
             if (chunkCalls?.length) {
               calls = chunkCalls
@@ -202,19 +235,18 @@ export async function chatHandler(c: Context<AppEnv>) {
         }
 
         try {
+          let started = await startModelStream()
+          let responseStream = started.result
+          let activeModel = started.model
           let initial
           try {
             initial = await consumeInitialStream(responseStream)
           } catch (error) {
             const alternatives = MODEL_CANDIDATES.filter((model) => model !== activeModel)
             if (fullText || !isTransient(error) || !alternatives.length) throw error
-            const fallback = await callWithFallback((model) => ai.models.generateContentStream({
-              model,
-              contents,
-              config: { systemInstruction: systemPrompt, tools: [{ functionDeclarations }] },
-            }), alternatives)
-            responseStream = fallback.result
-            activeModel = fallback.model
+            started = await startModelStream(alternatives)
+            responseStream = started.result
+            activeModel = started.model
             initial = await consumeInitialStream(responseStream)
           }
 
@@ -223,6 +255,7 @@ export async function chatHandler(c: Context<AppEnv>) {
           for (let round = 0; calls?.length && round < MAX_TOOL_ROUNDS; round += 1) {
             ensureActive()
             const responseParts = []
+            let itineraryWritten = false
             const hasLookupAndWrite = calls.some((call) => call.name === 'search_places' || call.name === 'check_weather')
               && calls.some((call) => call.name === 'build_itinerary' || call.name === 'update_itinerary_day')
 
@@ -237,16 +270,42 @@ export async function chatHandler(c: Context<AppEnv>) {
               responseParts.push({ functionResponse: { name, response: result.response } })
               if ('notification' in result && result.notification) send({ type: 'system', message: result.notification })
               if ('itineraryChanged' in result && result.itineraryChanged && result.response.status === 'success') {
+                itineraryWritten = true
                 send({ type: 'function_call', name, status: 'success' })
               }
             }
 
             conversation.push(modelContent, { role: 'user', parts: responseParts })
-            const generated = await callWithFallback((model) => ai.models.generateContent({
+            const persistenceTools = currentItinerary
+              ? ['build_itinerary', 'update_itinerary_day']
+              : ['build_itinerary']
+            const allowedFunctionNames = [
+              'save_user_preference',
+              ...(toolState.placeSearches < 2 ? ['search_places'] : []),
+              ...(!toolState.weatherChecked ? ['check_weather'] : []),
+              ...persistenceTools,
+            ]
+            const forcePersistence = toolState.placeSearches >= 2 && toolState.weatherChecked
+            const generated = await callWithFallback((model) => timebox(ai.models.generateContent({
               model,
               contents: conversation,
-              config: { systemInstruction: systemPrompt, tools: [{ functionDeclarations }] },
-            }), candidateOrder(activeModel))
+              config: itineraryWritten ? {
+                systemInstruction: systemPrompt,
+              } : {
+                systemInstruction: systemPrompt,
+                tools: [{
+                  functionDeclarations: functionDeclarations.filter((declaration) =>
+                    allowedFunctionNames.includes(declaration.name || ''),
+                  ),
+                }],
+                toolConfig: {
+                  functionCallingConfig: {
+                    mode: forcePersistence ? FunctionCallingConfigMode.ANY : FunctionCallingConfigMode.VALIDATED,
+                    allowedFunctionNames: forcePersistence ? persistenceTools : allowedFunctionNames,
+                  },
+                },
+              },
+            }), MODEL_RESPONSE_TIMEOUT_MS, `Menunggu model ${model}`), candidateOrder(activeModel))
             activeModel = generated.model
             const response = generated.result
             const nextCalls = response.functionCalls as AgentCall[] | undefined
@@ -283,7 +342,10 @@ export async function chatHandler(c: Context<AppEnv>) {
         } catch (error) {
           if (!isCancelled()) {
             console.error('Chat stream failed', error)
-            controller.enqueue(encodeSse({ type: 'error', message: 'Proses AI terhenti. Coba kirim ulang pesanmu.' }))
+            const message = isTransient(error)
+              ? 'Layanan AI terlalu lama merespons. Coba kirim ulang beberapa saat lagi.'
+              : 'Proses AI terhenti. Coba kirim ulang pesanmu.'
+            controller.enqueue(encodeSse({ type: 'error', message }))
             controller.enqueue(encodeSse('[DONE]'))
           }
         } finally {
