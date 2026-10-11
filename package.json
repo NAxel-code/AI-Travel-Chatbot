@@ -1,0 +1,13 @@
+{
+  "name": "ai-travel-chatbot-root",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix frontend install --include=dev && npm --prefix frontend run build"
+  },
+  "dependencies": {
+    "@google/genai": "^2.28.0",
+    "hono": "^4.13.13"
+  }
+}
