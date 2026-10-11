@@ -41,15 +41,25 @@ function itemInsertStatement(db: D1Database, itineraryId: string, item: Itinerar
 }
 
 function applyGroundedProvenance(items: ItineraryItemInput[], state: AgentToolState): ItineraryItemInput[] {
+  const usedUrls = new Set<string>()
   return items.map((item) => {
     const hasGrounding = Boolean(item.source_url || item.latitude != null || item.longitude != null || item.address)
     if (!hasGrounding) return item
     if (!item.source_url) throw new ValidationError(`Lokasi “${item.title}” tidak memiliki source_url hasil search_places.`)
     const grounded = state.groundedPlaces.get(item.source_url)
     if (!grounded) throw new ValidationError(`Sumber lokasi “${item.title}” belum diverifikasi dalam percakapan ini.`)
+    if (usedUrls.has(item.source_url)) {
+      return {
+        ...item,
+        latitude: null,
+        longitude: null,
+        source_url: null,
+      }
+    }
+    usedUrls.add(item.source_url)
     return {
       ...item,
-      location_name: grounded.name,
+      location_name: item.location_name || grounded.name,
       address: grounded.address,
       latitude: grounded.latitude,
       longitude: grounded.longitude,
