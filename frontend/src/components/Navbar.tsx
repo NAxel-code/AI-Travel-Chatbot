@@ -64,22 +64,23 @@ export function Navbar({
       <div className="flex items-center gap-3">
         {/* PDF & Calendar Export Buttons */}
         {hasItinerary && (
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {onExportPdf && (
               <button
                 type="button"
                 onClick={onExportPdf}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#161b23] px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition"
-                title="Cetak atau Simpan PDF"
+                className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 hover:text-white transition"
+                title="Unduh / Cetak Dokumen Laporan Perjalanan (PDF)"
               >
-                <Download className="h-3.5 w-3.5" /> PDF
+                <Download className="h-3.5 w-3.5" />
+                <span>Laporan PDF</span>
               </button>
             )}
             {onExportCalendar && (
               <button
                 type="button"
                 onClick={onExportCalendar}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#161b23] px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-slate-800 transition"
+                className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#161b23] px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-slate-800 transition"
                 title="Ekspor ke Kalender .ics"
               >
                 <CalendarDays className="h-3.5 w-3.5" /> .ics

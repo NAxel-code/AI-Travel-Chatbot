@@ -18,9 +18,13 @@ import {
   Wallet,
   MessageSquare,
   LayoutGrid,
+  FileText,
+  Download,
+  CheckCircle2,
 } from 'lucide-react'
 import { Markdown } from './components/Markdown'
 import { createIcs } from './lib/calendar'
+import { openOrDownloadTravelReport } from './lib/travelReport'
 import { readSse } from './lib/sse'
 import { Navbar } from './components/Navbar'
 import { DayCard } from './components/DayCard'
@@ -162,7 +166,9 @@ export default function App() {
   const [pageError, setPageError] = useState<string | null>(null)
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0)
-  const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 1024 ? 'chat' : 'overview',
+  )
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<ItineraryItem | null>(null)
 
@@ -484,6 +490,21 @@ export default function App() {
 
   const hasAskedAi = messages.some((m) => m.role === 'user')
 
+  function handleExportReport() {
+    const latestAiMsg = [...messages]
+      .reverse()
+      .find((m) => m.role === 'model' && m.content !== INITIAL_GREETING && m.content.trim())?.content
+    openOrDownloadTravelReport({
+      destination: inferredDestination,
+      dayCount: inferredDayCount,
+      startDate: itinerary?.start_date,
+      endDate: itinerary?.end_date,
+      items: itinerary?.items || [],
+      latestAiMessage: latestAiMsg,
+      preferences,
+    })
+  }
+
   if (isBootstrapping) {
     return (
       <main className="grid min-h-[100dvh] place-items-center bg-[#0c1015] px-6 text-white">
@@ -500,9 +521,9 @@ export default function App() {
       {/* Top Navigation Bar */}
       <Navbar
         destination={itinerary?.destination || (hasAskedAi ? inferredDestination : undefined)}
-        hasItinerary={Boolean(itinerary)}
+        hasItinerary={Boolean(itinerary) || hasAskedAi}
         onSearch={(query) => void sendMessage(`Cari rekomendasi tempat terkait: ${query}`)}
-        onExportPdf={() => window.print()}
+        onExportPdf={handleExportReport}
         onExportCalendar={exportCalendar}
         onTogglePreferences={() => setShowPreferences((v) => !v)}
         onNewTrip={startNewTrip}
@@ -542,13 +563,24 @@ export default function App() {
 
             <div className="flex items-center gap-1.5">
               {hasAskedAi && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('expenses')}
-                  className="lg:hidden rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/25 transition"
-                >
-                  Cek Biaya
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleExportReport}
+                    className="lg:hidden flex items-center gap-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/25 transition"
+                    title="Unduh Dokumen Laporan Perjalanan"
+                  >
+                    <FileText className="h-3 w-3" />
+                    <span>Laporan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('expenses')}
+                    className="lg:hidden rounded-xl border border-slate-700 bg-[#1a222d] px-2.5 py-1.5 text-[11px] font-semibold text-amber-300 hover:bg-slate-800 transition"
+                  >
+                    Biaya
+                  </button>
+                </>
               )}
               <button
                 type="button"
