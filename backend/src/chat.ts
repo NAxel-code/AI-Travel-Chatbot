@@ -8,7 +8,7 @@ import type { AppEnv, ChatMessage, ItineraryItemInput, Preference } from './type
 import { parseChatRequest, ValidationError } from './validation'
 
 const MODEL_CANDIDATES = ['gemini-3.5-flash-lite', 'gemini-3.8-flash']
-const MAX_TOOL_ROUNDS = 4
+const MAX_TOOL_ROUNDS = 6
 const CHAT_DEADLINE_MS = 60_000
 const MODEL_START_TIMEOUT_MS = 15_000
 const MODEL_RESPONSE_TIMEOUT_MS = 20_000
@@ -252,10 +252,11 @@ export async function chatHandler(c: Context<AppEnv>) {
 
           let { calls, modelContent } = initial
           const conversation: any[] = [...contents]
+          let itineraryWritten = false
+          let preferencesSaved = false
           for (let round = 0; calls?.length && round < MAX_TOOL_ROUNDS; round += 1) {
             ensureActive()
             const responseParts = []
-            let itineraryWritten = false
             const hasLookupAndWrite = calls.some((call) => call.name === 'search_places' || call.name === 'check_weather')
               && calls.some((call) => call.name === 'build_itinerary' || call.name === 'update_itinerary_day')
 
@@ -268,10 +269,14 @@ export async function chatHandler(c: Context<AppEnv>) {
                 ? { response: { status: 'error', message: 'Use lookup results, then call the itinerary tool in the next round.' } }
                 : await executeAgentTool(c.env, sessionId, name, call.args, toolState)
               responseParts.push({ functionResponse: { name, response: result.response } })
+              if (name === 'save_user_preference' && result.response.status === 'success') {
+                preferencesSaved = true
+              }
               if ('notification' in result && result.notification) send({ type: 'system', message: result.notification })
               if ('itineraryChanged' in result && result.itineraryChanged && result.response.status === 'success') {
                 itineraryWritten = true
-                send({ type: 'function_call', name, status: 'success' })
+                const updatedItinerary = await getCurrentItinerary(c.env, sessionId).catch(() => null)
+                send({ type: 'function_call', name, status: 'success', ...(updatedItinerary ? { itinerary: updatedItinerary } : {}) })
               }
             }
 
@@ -280,16 +285,16 @@ export async function chatHandler(c: Context<AppEnv>) {
               ? ['build_itinerary', 'update_itinerary_day']
               : ['build_itinerary']
             const allowedFunctionNames = [
-              'save_user_preference',
-              ...(toolState.placeSearches < 2 ? ['search_places'] : []),
-              ...(!toolState.weatherChecked ? ['check_weather'] : []),
-              ...persistenceTools,
+              ...(!preferencesSaved ? ['save_user_preference'] : []),
+              ...(!itineraryWritten && toolState.placeSearches < 2 ? ['search_places'] : []),
+              ...(!itineraryWritten && !toolState.weatherChecked ? ['check_weather'] : []),
+              ...(!itineraryWritten ? persistenceTools : []),
             ]
-            const forcePersistence = toolState.placeSearches >= 2 && toolState.weatherChecked
+            const forcePersistence = !itineraryWritten && toolState.placeSearches >= 2 && toolState.weatherChecked
             const generated = await callWithFallback((model) => timebox(ai.models.generateContent({
               model,
               contents: conversation,
-              config: itineraryWritten ? {
+              config: allowedFunctionNames.length === 0 ? {
                 systemInstruction: systemPrompt,
               } : {
                 systemInstruction: systemPrompt,
@@ -308,7 +313,9 @@ export async function chatHandler(c: Context<AppEnv>) {
             }), MODEL_RESPONSE_TIMEOUT_MS, `Menunggu model ${model}`), candidateOrder(activeModel))
             activeModel = generated.model
             const response = generated.result
-            const nextCalls = response.functionCalls as AgentCall[] | undefined
+            const nextCalls = allowedFunctionNames.length === 0
+              ? undefined
+              : (response.functionCalls as AgentCall[] | undefined)
             if (nextCalls?.length) {
               calls = nextCalls
               modelContent = response.candidates?.[0]?.content ?? {
@@ -325,9 +332,11 @@ export async function chatHandler(c: Context<AppEnv>) {
             send({ type: 'text', text: `${separator}${responseText}` })
           }
 
-          if (calls?.length) throw new Error('Maximum tool rounds reached')
+          if (calls?.length && !itineraryWritten) throw new Error('Maximum tool rounds reached')
           if (!fullText) {
-            fullText = 'Maaf, saya belum bisa menyusun jawaban. Silakan coba lagi.'
+            fullText = itineraryWritten
+              ? 'Selesai. Rencana perjalananmu sudah diperbarui.'
+              : 'Maaf, saya belum bisa menyusun jawaban. Silakan coba lagi.'
             send({ type: 'text', text: fullText })
           }
 

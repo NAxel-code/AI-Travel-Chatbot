@@ -139,8 +139,16 @@
 }
 
 @media print {
-  body {
-    background: white;
-    color: black;
+  body,
+  .app-shell,
+  .app-shell main,
+  .app-shell div {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .app-shell aside,
+  .app-shell > header {
+    display: none !important;
   }
 }

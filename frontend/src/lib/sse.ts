@@ -2,7 +2,7 @@ export type StreamEvent =
   | { type: 'progress'; stage: string; message: string }
   | { type: 'text'; text: string }
   | { type: 'system'; message: string }
-  | { type: 'function_call'; name: string; status: 'success' }
+  | { type: 'function_call'; name: string; status: 'success'; itinerary?: unknown }
   | { type: 'error'; message: string }
 
 export class SseParser {

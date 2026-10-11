@@ -17,13 +17,22 @@ type TravelMapProps = {
   items: MapLocation[]
   destination?: string
   selectedDay?: number | null
+  selectedPlace?: MapLocation | null
   className?: string
   onSelectPlace?: (item: MapLocation) => void
 }
 
-export function TravelMap({ items, destination = 'Bali', selectedDay, className = '', onSelectPlace }: TravelMapProps) {
+export function TravelMap({
+  items,
+  destination = 'Bali',
+  selectedDay,
+  selectedPlace,
+  className = '',
+  onSelectPlace,
+}: TravelMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
+  const markersByIdRef = useRef<Map<string, L.Marker>>(new Map())
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Filter items if specific day is selected
@@ -40,6 +49,7 @@ export function TravelMap({ items, destination = 'Bali', selectedDay, className 
       mapInstanceRef.current.remove()
       mapInstanceRef.current = null
     }
+    markersByIdRef.current.clear()
 
     const currentItems = (selectedDay ? items.filter((it) => it.day_number === selectedDay) : items)
       .filter((it): it is MapLocation & { latitude: number; longitude: number } => 
@@ -99,6 +109,7 @@ export function TravelMap({ items, destination = 'Bali', selectedDay, className 
         onSelectPlace?.(item)
       })
 
+      if (item.id) markersByIdRef.current.set(item.id, marker)
       markers.push(marker)
     })
 
@@ -119,12 +130,26 @@ export function TravelMap({ items, destination = 'Bali', selectedDay, className 
     }
 
     mapInstanceRef.current = map
+    const resizeTimer = window.setTimeout(() => {
+      map.invalidateSize()
+    }, 150)
 
     return () => {
+      window.clearTimeout(resizeTimer)
       map.remove()
       mapInstanceRef.current = null
     }
   }, [items, selectedDay, onSelectPlace])
+
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !selectedPlace) return
+    if (typeof selectedPlace.latitude === 'number' && typeof selectedPlace.longitude === 'number') {
+      map.setView([selectedPlace.latitude, selectedPlace.longitude], 14, { animate: true })
+      const marker = selectedPlace.id ? markersByIdRef.current.get(selectedPlace.id) : undefined
+      marker?.openPopup()
+    }
+  }, [selectedPlace])
 
   function toggleFullscreen() {
     setIsFullscreen(!isFullscreen)

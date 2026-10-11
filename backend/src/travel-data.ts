@@ -56,19 +56,19 @@ function weatherLabel(code: number): string {
 }
 
 async function geocodeDestination(cache: KVNamespace, destination: string) {
-  const cacheKey = `grounding:geocode:${destination.toLowerCase()}`
+  const cacheKey = `grounding:geocode:v2:${destination.toLowerCase()}`
   const cached = await cache.get(cacheKey, 'json') as GeocodingResponse['results'] extends Array<infer T> ? T | null : never
   if (cached) return cached
 
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search')
   url.searchParams.set('name', destination)
-  url.searchParams.set('count', '1')
+  url.searchParams.set('count', '5')
   url.searchParams.set('language', 'id')
   url.searchParams.set('format', 'json')
   const response = await fetchWithTimeout(url.toString())
   if (!response.ok) throw new Error(`Open-Meteo geocoding returned ${response.status}`)
   const data = await response.json<GeocodingResponse>()
-  const location = data.results?.[0] || null
+  const location = data.results?.find((item) => item.country === 'Indonesia') || data.results?.[0] || null
   if (location) await cache.put(cacheKey, JSON.stringify(location), { expirationTtl: 86_400 })
   return location
 }
@@ -80,7 +80,7 @@ export async function searchPlaces(
   limit: number,
 ): Promise<{ source: string; attribution: string; timezone: string | null; places: GroundedPlace[] }> {
   const search = `${query}, ${destination}`
-  const cacheKey = `grounding:places:${search.toLowerCase()}:${limit}`
+  const cacheKey = `grounding:places:v2:${search.toLowerCase()}:${limit}`
   const cached = await cache.get(cacheKey, 'json') as {
     source: string
     attribution: string
@@ -141,7 +141,7 @@ export async function checkWeather(
     }
   }
 
-  const cacheKey = `grounding:weather:${destination.toLowerCase()}:${startDate}:${endDate}`
+  const cacheKey = `grounding:weather:v2:${destination.toLowerCase()}:${startDate}:${endDate}`
   const cached = await cache.get(cacheKey, 'json')
   if (cached) return cached
 

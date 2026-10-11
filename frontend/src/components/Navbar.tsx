@@ -27,6 +27,7 @@ export function Navbar({
     e.preventDefault()
     if (searchVal.trim() && onSearch) {
       onSearch(searchVal.trim())
+      setSearchVal('')
     }
   }
 

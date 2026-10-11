@@ -90,7 +90,10 @@ export function DayCard({
         {onRefineDay && (
           <button
             type="button"
-            onClick={() => onRefineDay(dayNumber)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onRefineDay(dayNumber)
+            }}
             className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-lg bg-black/60 text-slate-300 backdrop-blur-md border border-white/10 hover:bg-emerald-600 hover:text-white transition"
             title="Ubah hari ini"
             aria-label={`Ubah hari ke-${dayNumber}`}
@@ -116,7 +119,10 @@ export function DayCard({
         {displayedItems.map((item, idx) => (
           <div
             key={item.id || idx}
-            onClick={() => onSelectPlace?.(item)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelectPlace?.(item)
+            }}
             className="group/item flex items-start gap-3 text-xs cursor-pointer rounded-lg p-1.5 -mx-1.5 hover:bg-slate-800/60 transition"
           >
             {/* Time Slot */}
@@ -156,7 +162,10 @@ export function DayCard({
         {items.length > 4 && (
           <button
             type="button"
-            onClick={() => setShowAllItems(!showAllItems)}
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowAllItems(!showAllItems)
+            }}
             className="flex items-center gap-1 text-[11px] font-medium text-emerald-400 hover:text-emerald-300 transition"
           >
             {showAllItems ? (
@@ -172,14 +181,17 @@ export function DayCard({
       <div className="mt-auto flex items-center justify-between border-t border-slate-800/80 px-4 py-3 text-xs bg-[#12161f]">
         <div className="flex items-center gap-1.5 rounded-lg bg-slate-800/80 px-2.5 py-1 text-slate-300 border border-slate-700/50">
           <Car className="h-3.5 w-3.5 text-emerald-400" />
-          <span className="font-medium text-[11px]">Transportasi</span>
+          <span className="font-medium text-[11px]">{items.length} Aktivitas</span>
         </div>
 
         <div className="flex items-center gap-1">
           {onRefineDay && (
             <button
               type="button"
-              onClick={() => onRefineDay(dayNumber)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onRefineDay(dayNumber)
+              }}
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-emerald-400 transition"
               title="Sesuaikan hari ini"
             >

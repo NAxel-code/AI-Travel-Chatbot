@@ -23,7 +23,19 @@ import { TravelMap } from './components/TravelMap'
 import { ExpensesView } from './components/ExpensesView'
 import type { ItineraryItem } from './components/DayCard'
 
-const API_BASE = String(import.meta.env.VITE_API_BASE || 'http://localhost:8787/api').replace(/\/$/, '')
+function resolveApiBase(): string {
+  const configured = String(import.meta.env.VITE_API_BASE || '').trim().replace(/\/$/, '')
+  const isLocalHost =
+    typeof window === 'undefined' ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1'
+  if (configured && (isLocalHost || !configured.includes('localhost'))) {
+    return configured
+  }
+  return isLocalHost ? 'http://localhost:8787/api' : '/api'
+}
+
+const API_BASE = resolveApiBase()
 const SESSION_STORAGE_KEY = 'travel_session_credentials'
 const LEGACY_SESSION_KEY = 'travel_session_id'
 const INITIAL_GREETING =
@@ -43,6 +55,28 @@ type Itinerary = {
 type Notice = { id: string; message: string }
 type ApiEnvelope<T> = { data: T }
 type TabType = 'overview' | 'map' | 'expenses' | 'chat'
+type SessionCache = {
+  messages?: Message[]
+  itinerary?: Itinerary | null
+  preferences?: Preference[]
+}
+
+function readSessionCache(sessionId: string): SessionCache {
+  try {
+    return (JSON.parse(localStorage.getItem(`travel_session_cache:${sessionId}`) || '{}') as SessionCache) || {}
+  } catch {
+    return {}
+  }
+}
+
+function writeSessionCache(sessionId: string, patch: SessionCache) {
+  try {
+    const prev = readSessionCache(sessionId)
+    localStorage.setItem(`travel_session_cache:${sessionId}`, JSON.stringify({ ...prev, ...patch }))
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 class ApiError extends Error {
   status: number
@@ -125,6 +159,7 @@ export default function App() {
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0)
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
+  const [selectedPlace, setSelectedPlace] = useState<ItineraryItem | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -133,6 +168,11 @@ export default function App() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: isBootstrapping ? 'auto' : 'smooth' })
   }, [messages, isBootstrapping])
+
+  useEffect(() => {
+    if (!credentials || isBootstrapping) return
+    writeSessionCache(credentials.sessionId, { messages, itinerary, preferences })
+  }, [credentials, isBootstrapping, messages, itinerary, preferences])
 
   useEffect(() => {
     let active = true
@@ -161,10 +201,17 @@ export default function App() {
 
         if (!active) return
         const [historyResult, itineraryResult, preferenceResult] = data
+        const cached = readSessionCache(session.sessionId)
         setCredentials(session)
-        setMessages(historyResult.data.length ? historyResult.data : [{ role: 'model', content: INITIAL_GREETING }])
-        setItinerary(itineraryResult.data)
-        setPreferences(preferenceResult.data)
+        setMessages(
+          historyResult.data.length
+            ? historyResult.data
+            : cached.messages?.length
+            ? cached.messages
+            : [{ role: 'model', content: INITIAL_GREETING }],
+        )
+        setItinerary(itineraryResult.data ?? cached.itinerary ?? null)
+        setPreferences(preferenceResult.data.length ? preferenceResult.data : cached.preferences ?? [])
       } catch (error) {
         if (active) setPageError(error instanceof Error ? error.message : 'Aplikasi tidak dapat dimuat.')
       } finally {
@@ -194,20 +241,21 @@ export default function App() {
   async function refreshItinerary(session = credentials) {
     if (!session) return
     const result = await apiRequest<ApiEnvelope<Itinerary | null>>(`/itinerary/${session.sessionId}`, session)
-    setItinerary(result.data)
+    if (result.data) setItinerary(result.data)
   }
 
   async function refreshPreferences(session = credentials) {
     if (!session) return
     const result = await apiRequest<ApiEnvelope<Preference[]>>(`/preferences/${session.sessionId}`, session)
-    setPreferences(result.data)
+    if (result.data.length) setPreferences(result.data)
   }
 
   async function sendMessage(message: string) {
-    if (!credentials || isLoading || !message.trim()) return
+    if (isLoading || !message.trim()) return
     const cleanMessage = message.trim()
     const controller = new AbortController()
     abortRef.current = controller
+    const priorHistory = messages.filter((m) => m.content !== INITIAL_GREETING && m.content.trim())
     setInput('')
     setPageError(null)
     setLastFailedMessage(null)
@@ -215,17 +263,31 @@ export default function App() {
     setIsLoading(true)
     setMessages((current) => [...current, { role: 'user', content: cleanMessage }, { role: 'model', content: '' }])
 
+    let activeSession = credentials
     let itineraryChanged = false
     let preferencesChanged = false
     try {
+      if (!activeSession) {
+        activeSession = await createSession(localStorage.getItem(LEGACY_SESSION_KEY))
+        setCredentials(activeSession)
+      }
+
       const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          'X-Session-Token': credentials.token,
+          'X-Session-Token': activeSession.token,
         },
-        body: JSON.stringify({ session_id: credentials.sessionId, message: cleanMessage }),
+        body: JSON.stringify({
+          session_id: activeSession.sessionId,
+          message: cleanMessage,
+          client_state: {
+            itinerary,
+            preferences,
+            history: priorHistory.slice(-18),
+          },
+        }),
       })
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null
@@ -244,18 +306,32 @@ export default function App() {
           })
         } else if (event.type === 'function_call') {
           itineraryChanged = event.name === 'build_itinerary' || event.name === 'update_itinerary_day'
+          if (event.itinerary && typeof event.itinerary === 'object') {
+            setItinerary(event.itinerary as Itinerary)
+          }
         } else if (event.type === 'system') {
-          if (event.message.startsWith('Preferensi disimpan:')) preferencesChanged = true
+          if (event.message.startsWith('Preferensi disimpan:')) {
+            preferencesChanged = true
+            const rawPref = event.message.replace(/^Preferensi disimpan:\s*/, '')
+            const eqIdx = rawPref.indexOf('=')
+            if (eqIdx !== -1) {
+              const cat = rawPref.slice(0, eqIdx).trim().replace(/\s+/g, '_')
+              const val = rawPref.slice(eqIdx + 1).trim()
+              if (cat && val) {
+                setPreferences((prev) => {
+                  const filtered = prev.filter((p) => p.preference_category !== cat)
+                  return [...filtered, { preference_category: cat, preference_value: val }].sort((a, b) =>
+                    a.preference_category.localeCompare(b.preference_category),
+                  )
+                })
+              }
+            }
+          }
           addNotice(event.message)
         } else if (event.type === 'error') {
           throw new Error(event.message)
         }
       })
-
-      await Promise.all([
-        itineraryChanged ? refreshItinerary(credentials) : Promise.resolve(),
-        preferencesChanged ? refreshPreferences(credentials) : Promise.resolve(),
-      ])
     } catch (error) {
       const aborted = error instanceof DOMException && error.name === 'AbortError'
       const message = aborted
@@ -271,6 +347,12 @@ export default function App() {
       })
       if (!aborted) setLastFailedMessage(cleanMessage)
     } finally {
+      if (activeSession && (itineraryChanged || preferencesChanged)) {
+        await Promise.all([
+          itineraryChanged ? refreshItinerary(activeSession).catch(() => undefined) : Promise.resolve(),
+          preferencesChanged ? refreshPreferences(activeSession).catch(() => undefined) : Promise.resolve(),
+        ])
+      }
       abortRef.current = null
       setChatProgress(null)
       setIsLoading(false)
@@ -314,6 +396,18 @@ export default function App() {
     }
   }
 
+  function startNewTrip() {
+    setSelectedDay(null)
+    setSelectedPlace(null)
+    setInput('Rencanakan perjalanan baru ke: ')
+    if (window.innerWidth < 1024) {
+      setActiveTab('chat')
+    } else {
+      setActiveTab('overview')
+    }
+    window.setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
   function exportCalendar() {
     if (!itinerary) return
     try {
@@ -355,7 +449,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-[100dvh] min-h-[640px] w-full flex-col overflow-hidden bg-[#0c1015] text-slate-100 antialiased">
+    <div className="app-shell flex h-[100dvh] min-h-[640px] w-full flex-col overflow-hidden bg-[#0c1015] text-slate-100 antialiased">
       {/* Top Navigation Bar */}
       <Navbar
         destination={itinerary?.destination}
@@ -364,7 +458,7 @@ export default function App() {
         onExportPdf={() => window.print()}
         onExportCalendar={exportCalendar}
         onTogglePreferences={() => setShowPreferences((v) => !v)}
-        onNewTrip={() => setInput('Rencanakan perjalanan baru ke: ')}
+        onNewTrip={startNewTrip}
       />
 
       {/* Main App Dashboard (2-Column Layout) */}
@@ -523,12 +617,12 @@ export default function App() {
 
             <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
               <div className="flex-1 relative flex items-center rounded-2xl border border-slate-800 bg-[#161b23] px-3 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition">
-                {/* Paperclip attachment icon */}
+                {/* Paperclip attachment icon toggles preference memory */}
                 <button
                   type="button"
-                  onClick={() => addNotice('Fitur lampiran dokumen akan hadir segera.')}
+                  onClick={() => setShowPreferences((v) => !v)}
                   className="text-slate-400 hover:text-slate-200 p-1 transition"
-                  title="Lampirkan preferensi"
+                  title="Kelola & lampirkan preferensi"
                 >
                   <Paperclip className="h-4 w-4" />
                 </button>
@@ -538,7 +632,7 @@ export default function App() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleInputKeyDown}
-                  disabled={!credentials || isLoading}
+                  disabled={isLoading}
                   maxLength={4000}
                   rows={1}
                   placeholder="Ketik pesan atau tujuan liburanmu..."
@@ -558,7 +652,7 @@ export default function App() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={!credentials || !input.trim()}
+                    disabled={isLoading || !input.trim()}
                     className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed transition shadow-md shadow-emerald-500/20"
                     title="Kirim pesan"
                   >
@@ -664,143 +758,154 @@ export default function App() {
               </div>
             )}
 
-            {!itinerary ? (
-              /* Empty state before trip is created */
+            {/* 1. MAP TAB: Works both before and after itinerary creation */}
+            {activeTab === 'map' ? (
+              <div className="flex flex-col h-full min-h-[550px] space-y-4">
+                {itinerary && sortedDays.length > 0 && (
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 thin-scrollbar">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDay(null)}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                        selectedDay === null
+                          ? 'bg-emerald-500 text-white shadow-md'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      Semua Hari
+                    </button>
+                    {sortedDays.map((day) => (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => setSelectedDay(day)}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                          selectedDay === day
+                            ? 'bg-emerald-500 text-white shadow-md'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        Hari {day}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex-1 min-h-[480px]">
+                  <TravelMap
+                    items={itinerary?.items || []}
+                    destination={itinerary?.destination || 'Bali'}
+                    selectedDay={selectedDay}
+                    selectedPlace={selectedPlace}
+                    onSelectPlace={(item) => setSelectedPlace(item as ItineraryItem)}
+                    className="h-full w-full min-h-[480px]"
+                  />
+                </div>
+              </div>
+            ) : activeTab === 'expenses' && itinerary ? (
+              /* 2. EXPENSES TAB: Budget & Cost Breakdown */
+              <ExpensesView
+                destination={itinerary.destination}
+                items={itinerary.items}
+                dayCount={dayCount}
+              />
+            ) : !itinerary ? (
+              /* Empty state before trip is created (Overview / Expenses without trip) */
               <div className="grid min-h-[50vh] place-items-center text-center p-6">
                 <div className="max-w-md space-y-4">
                   <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                     <Compass className="h-8 w-8 animate-pulse" />
                   </div>
-                  <h3 className="font-display text-2xl font-bold text-white">Rencanakan Destinasi Impianmu</h3>
+                  <h3 className="font-display text-2xl font-bold text-white">
+                    {activeTab === 'expenses' ? 'Estimasi Anggaran Perjalanan' : 'Rencanakan Destinasi Impianmu'}
+                  </h3>
                   <p className="text-xs sm:text-sm leading-relaxed text-slate-400">
-                    Ketik tujuan, tanggal liburan, dan preferensimu di panel chat AI Assistant. Rute akan mencari lokasi nyata,
-                    membuat kartu jadwal harian, dan menampilkan rute peta interaktif.
+                    {activeTab === 'expenses'
+                      ? 'Buat rencana perjalanan terlebih dahulu melalui chat AI Assistant untuk melihat rincian biaya penginapan, kuliner, transportasi, dan tiket wisata.'
+                      : 'Ketik tujuan, tanggal liburan, dan preferensimu di panel chat AI Assistant. Rute akan mencari lokasi nyata, membuat kartu jadwal harian, dan menampilkan rute peta interaktif.'}
                   </p>
                   <div className="flex flex-wrap justify-center gap-2 pt-2">
-                    {['Liburan 3 hari ke Bali', 'Wisata kuliner 2 hari di Bandung', 'Trip 4 hari ke Yogyakarta'].map(
-                      (prompt) => (
-                        <button
-                          key={prompt}
-                          type="button"
-                          onClick={() => void sendMessage(prompt)}
-                          className="rounded-xl border border-slate-800 bg-[#161b23] px-3 py-1.5 text-xs text-slate-300 hover:border-emerald-500 hover:text-emerald-400 transition"
-                        >
-                          {prompt} &rarr;
-                        </button>
-                      ),
-                    )}
+                    {[
+                      {
+                        label: 'Liburan 3 hari ke Bali',
+                        prompt: 'Buatkan itinerary liburan 3 hari ke Bali minggu depan, suka pantai dan kuliner, budget menengah',
+                      },
+                      {
+                        label: 'Wisata kuliner 2 hari di Bandung',
+                        prompt: 'Buatkan itinerary wisata kuliner dan alam 2 hari di Bandung akhir pekan depan, budget hemat',
+                      },
+                      {
+                        label: 'Trip 4 hari ke Yogyakarta',
+                        prompt: 'Buatkan itinerary liburan 4 hari ke Yogyakarta bulan depan bersama keluarga, suka budaya dan kuliner',
+                      },
+                    ].map(({ label, prompt }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => void sendMessage(prompt)}
+                        className="rounded-xl border border-slate-800 bg-[#161b23] px-3 py-1.5 text-xs text-slate-300 hover:border-emerald-500 hover:text-emerald-400 transition"
+                      >
+                        {label} &rarr;
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             ) : (
-              /* Active Itinerary Content */
-              <>
-                {/* 1. OVERVIEW TAB: Horizontal Scroll Cards + Map Preview (Matching the Mockup!) */}
-                {activeTab === 'overview' && (
-                  <div className="flex flex-col 2xl:flex-row gap-6 h-full min-h-[560px]">
-                    {/* Left/Center: Day Cards Carousel */}
-                    <div className="flex-1 flex flex-col min-w-0">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Jadwal Harian ({sortedDays.length} Hari)
-                        </span>
-                        {selectedDay && (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedDay(null)}
-                            className="text-xs text-emerald-400 hover:underline"
-                          >
-                            Tampilkan semua hari di peta
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Horizontal Scroll Cards List */}
-                      <div className="flex gap-4 overflow-x-auto pb-4 pt-1 thin-scrollbar">
-                        {sortedDays.map((day) => (
-                          <div
-                            key={day}
-                            onClick={() => setSelectedDay(day)}
-                            className={`cursor-pointer transition-all ${
-                              selectedDay === day ? 'ring-2 ring-emerald-500 rounded-2xl scale-[1.01]' : ''
-                            }`}
-                          >
-                            <DayCard
-                              dayNumber={day}
-                              destination={itinerary.destination}
-                              startDate={itinerary.start_date}
-                              items={groupedItems[day] || []}
-                              onRefineDay={refineDay}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Right: Map Preview Widget matching Mockup */}
-                    <div className="w-full 2xl:w-[380px] xl:w-[420px] h-[340px] 2xl:h-full min-h-[300px] shrink-0">
-                      <TravelMap
-                        items={itinerary.items}
-                        destination={itinerary.destination}
-                        selectedDay={selectedDay}
-                        className="h-full w-full min-h-[300px]"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. MAP TAB: Full Page Interactive Route Map */}
-                {activeTab === 'map' && (
-                  <div className="flex flex-col h-full min-h-[550px] space-y-4">
-                    {/* Day filter pills */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 thin-scrollbar">
+              /* 3. OVERVIEW TAB: Horizontal Scroll Cards + Map Preview */
+              <div className="flex flex-col 2xl:flex-row gap-6 h-full min-h-[560px]">
+                {/* Left/Center: Day Cards Carousel */}
+                <div className="flex-1 flex flex-col min-w-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Jadwal Harian ({sortedDays.length} Hari)
+                    </span>
+                    {selectedDay && (
                       <button
                         type="button"
                         onClick={() => setSelectedDay(null)}
-                        className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                          selectedDay === null
-                            ? 'bg-emerald-500 text-white shadow-md'
-                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        className="text-xs text-emerald-400 hover:underline"
+                      >
+                        Tampilkan semua hari di peta
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Horizontal Scroll Cards List */}
+                  <div className="flex gap-4 overflow-x-auto pb-4 pt-1 thin-scrollbar">
+                    {sortedDays.map((day) => (
+                      <div
+                        key={day}
+                        onClick={() => setSelectedDay(day)}
+                        className={`cursor-pointer transition-all ${
+                          selectedDay === day ? 'ring-2 ring-emerald-500 rounded-2xl scale-[1.01]' : ''
                         }`}
                       >
-                        Semua Hari
-                      </button>
-                      {sortedDays.map((day) => (
-                        <button
-                          key={day}
-                          type="button"
-                          onClick={() => setSelectedDay(day)}
-                          className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                            selectedDay === day
-                              ? 'bg-emerald-500 text-white shadow-md'
-                              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                          }`}
-                        >
-                          Hari {day}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex-1 min-h-[480px]">
-                      <TravelMap
-                        items={itinerary.items}
-                        destination={itinerary.destination}
-                        selectedDay={selectedDay}
-                        className="h-full w-full min-h-[480px]"
-                      />
-                    </div>
+                        <DayCard
+                          dayNumber={day}
+                          destination={itinerary.destination}
+                          startDate={itinerary.start_date}
+                          items={groupedItems[day] || []}
+                          onRefineDay={refineDay}
+                          onSelectPlace={(item) => setSelectedPlace(item)}
+                        />
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
 
-                {/* 3. EXPENSES TAB: Budget & Cost Breakdown */}
-                {activeTab === 'expenses' && (
-                  <ExpensesView
-                    destination={itinerary.destination}
+                {/* Right: Map Preview Widget matching Mockup */}
+                <div className="w-full 2xl:w-[380px] xl:w-[420px] h-[340px] 2xl:h-full min-h-[300px] shrink-0">
+                  <TravelMap
                     items={itinerary.items}
-                    dayCount={dayCount}
+                    destination={itinerary.destination}
+                    selectedDay={selectedDay}
+                    selectedPlace={selectedPlace}
+                    onSelectPlace={(item) => setSelectedPlace(item as ItineraryItem)}
+                    className="h-full w-full min-h-[300px]"
                   />
-                )}
-              </>
+                </div>
+              </div>
             )}
           </div>
         </main>
