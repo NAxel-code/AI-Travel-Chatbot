@@ -4,6 +4,7 @@ import {
   Sparkles,
   Paperclip,
   ArrowUp,
+  ArrowLeft,
   Square,
   RotateCcw,
   Calendar,
@@ -13,6 +14,10 @@ import {
   Database,
   Loader2,
   Compass,
+  Map as MapIcon,
+  Wallet,
+  MessageSquare,
+  LayoutGrid,
 } from 'lucide-react'
 import { Markdown } from './components/Markdown'
 import { createIcs } from './lib/calendar'
@@ -435,7 +440,49 @@ export default function App() {
     .map(Number)
     .sort((a, b) => a - b)
 
-  const dayCount = itinerary ? calculateDayCount(itinerary.start_date, itinerary.end_date) : 0
+  const combinedContextText = [
+    ...messages.filter((m) => m.role === 'user').map((m) => m.content),
+    ...preferences.map((p) => p.preference_value),
+  ].join(' ')
+
+  const inferredDestination = (() => {
+    if (itinerary?.destination) return itinerary.destination
+    const known = [
+      'Labuan Bajo',
+      'Raja Ampat',
+      'Yogyakarta',
+      'Bandung',
+      'Lombok',
+      'Jakarta',
+      'Surabaya',
+      'Malang',
+      'Bromo',
+      'Danau Toba',
+      'Belitung',
+      'Manado',
+      'Makassar',
+      'Semarang',
+      'Solo',
+      'Bali',
+    ]
+    for (const place of known) {
+      if (new RegExp(`\\b${place}\\b`, 'i').test(combinedContextText)) return place
+    }
+    if (/\bjogja\b/i.test(combinedContextText)) return 'Yogyakarta'
+    return 'Bali'
+  })()
+
+  const inferredDayCount = (() => {
+    if (itinerary) return calculateDayCount(itinerary.start_date, itinerary.end_date)
+    const match = combinedContextText.match(/(\d{1,2})\s*hari/i)
+    if (match) {
+      const parsed = Number(match[1])
+      if (parsed >= 1 && parsed <= 31) return parsed
+    }
+    return 3
+  })()
+
+  const hasAskedAi = messages.some((m) => m.role === 'user')
 
   if (isBootstrapping) {
     return (
@@ -449,10 +496,10 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell flex h-[100dvh] min-h-[640px] w-full flex-col overflow-hidden bg-[#0c1015] text-slate-100 antialiased">
+    <div className="app-shell flex h-[100dvh] w-full flex-col overflow-hidden bg-[#0c1015] text-slate-100 antialiased">
       {/* Top Navigation Bar */}
       <Navbar
-        destination={itinerary?.destination}
+        destination={itinerary?.destination || (hasAskedAi ? inferredDestination : undefined)}
         hasItinerary={Boolean(itinerary)}
         onSearch={(query) => void sendMessage(`Cari rekomendasi tempat terkait: ${query}`)}
         onExportPdf={() => window.print()}
@@ -462,27 +509,47 @@ export default function App() {
       />
 
       {/* Main App Dashboard (2-Column Layout) */}
-      <div className="flex min-h-0 flex-1 overflow-hidden p-3 sm:p-5 gap-4">
+      <div className="flex min-h-0 flex-1 overflow-hidden p-2 sm:p-4 lg:p-5 gap-4">
         {/* Left Column: AI Assistant (Chat Sidebar) */}
         <aside
-          className={`flex h-full flex-col rounded-3xl border border-slate-800/80 bg-[#151b23] shadow-2xl transition-all ${
+          className={`flex h-full flex-col rounded-2xl sm:rounded-3xl border border-slate-800/80 bg-[#151b23] shadow-2xl transition-all ${
             activeTab === 'chat' ? 'w-full' : 'hidden lg:flex lg:w-[380px] xl:w-[420px]'
           } shrink-0`}
         >
           {/* Chat Header */}
-          <header className="flex items-center justify-between border-b border-slate-800/80 px-4 py-3.5">
-            <div className="flex items-center gap-3">
+          <header className="flex items-center justify-between border-b border-slate-800/80 px-3.5 sm:px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              {/* Mobile Back to Menu button in header */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('overview')}
+                className="lg:hidden flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-[#1a222d] px-2.5 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-slate-800 active:scale-95 transition"
+                aria-label="Kembali ke Menu"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Menu</span>
+              </button>
+
               {/* Bot Avatar Icon matching mockup */}
-              <div className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
-                <Sparkles className="h-5 w-5" />
+              <div className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <div>
                 <h2 className="text-sm font-bold text-white leading-none">Rute</h2>
-                <p className="mt-1 text-[11px] font-medium text-slate-400">AI Assistant</p>
+                <p className="mt-1 text-[11px] font-medium text-slate-400">AI Travel Assistant</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              {hasAskedAi && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('expenses')}
+                  className="lg:hidden rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/25 transition"
+                >
+                  Cek Biaya
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowPreferences((v) => !v)}
@@ -555,7 +622,7 @@ export default function App() {
           )}
 
           {/* Chat Messages Stream */}
-          <div className="thin-scrollbar flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
+          <div className="thin-scrollbar flex-1 space-y-4 overflow-y-auto p-3.5 sm:p-4" aria-live="polite">
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
@@ -573,7 +640,7 @@ export default function App() {
 
                 {/* Message Bubble */}
                 <div
-                  className={`max-w-[88%] text-xs sm:text-sm leading-relaxed ${
+                  className={`max-w-[92%] sm:max-w-[88%] text-xs sm:text-sm leading-relaxed ${
                     message.role === 'user'
                       ? 'rounded-2xl rounded-tr-sm bg-emerald-600 px-4 py-2.5 text-white shadow-md'
                       : 'rounded-2xl rounded-tl-sm bg-[#1e2530] border border-slate-700/60 px-4 py-3 text-slate-200 shadow-md'
@@ -600,11 +667,49 @@ export default function App() {
                 </div>
               </div>
             ))}
+
+            {/* Post-AI Question Quick Navigation Bar on Mobile */}
+            {hasAskedAi && !isLoading && (
+              <div className="lg:hidden pt-1 pb-2">
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
+                  <div className="text-[11px] font-semibold text-emerald-300">
+                    Navigasi Cepat ({inferredDestination} · {inferredDayCount} Hari):
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('overview')}
+                      className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-400 active:scale-95 transition"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      <span>Kembali ke Menu</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('map')}
+                      className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-[#161b23] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 active:scale-95 transition"
+                    >
+                      <MapIcon className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Lihat Peta</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('expenses')}
+                      className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-[#161b23] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 active:scale-95 transition"
+                    >
+                      <Wallet className="h-3.5 w-3.5 text-amber-400" />
+                      <span>Detail Biaya</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
 
           {/* Chat Footer Input */}
-          <footer className="border-t border-slate-800/80 p-3 bg-[#12161f]/80 rounded-b-3xl">
+          <footer className="border-t border-slate-800/80 p-2.5 sm:p-3 bg-[#12161f]/90 rounded-b-2xl sm:rounded-b-3xl">
             {lastFailedMessage && !isLoading && (
               <button
                 type="button"
@@ -616,12 +721,12 @@ export default function App() {
             )}
 
             <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
-              <div className="flex-1 relative flex items-center rounded-2xl border border-slate-800 bg-[#161b23] px-3 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition">
+              <div className="flex-1 relative flex items-center rounded-2xl border border-slate-800 bg-[#161b23] px-2.5 sm:px-3 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition">
                 {/* Paperclip attachment icon toggles preference memory */}
                 <button
                   type="button"
                   onClick={() => setShowPreferences((v) => !v)}
-                  className="text-slate-400 hover:text-slate-200 p-1 transition"
+                  className="text-slate-400 hover:text-slate-200 p-1.5 transition"
                   title="Kelola & lampirkan preferensi"
                 >
                   <Paperclip className="h-4 w-4" />
@@ -636,7 +741,7 @@ export default function App() {
                   maxLength={4000}
                   rows={1}
                   placeholder="Ketik pesan atau tujuan liburanmu..."
-                  className="max-h-24 min-h-[40px] flex-1 resize-none bg-transparent py-2.5 px-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none disabled:opacity-60"
+                  className="max-h-24 min-h-[42px] flex-1 resize-none bg-transparent py-2.5 px-2 text-xs sm:text-sm text-slate-100 placeholder:text-slate-400 focus:outline-none disabled:opacity-60"
                 />
 
                 {/* Send Button matching green circular button in mockup */}
@@ -666,36 +771,55 @@ export default function App() {
 
         {/* Right Column: Main Dashboard Workspace */}
         <main
-          className={`flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-800/80 bg-[#151b23] shadow-2xl ${
+          className={`flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-800/80 bg-[#151b23] shadow-2xl ${
             activeTab === 'chat' ? 'hidden lg:flex' : 'flex'
           }`}
         >
           {/* Workspace Top Header: Destination Title & Date Badge */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 px-6 pt-5 pb-3 gap-3">
-            <div>
-              <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                {itinerary?.destination ? `${itinerary.destination} Adventure` : 'Petualangan Baru'}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 px-4 sm:px-6 pt-4 sm:pt-5 pb-3 gap-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="font-display text-xl sm:text-3xl font-extrabold tracking-tight text-white truncate">
+                {itinerary?.destination
+                  ? `${itinerary.destination} Adventure`
+                  : hasAskedAi
+                  ? `${inferredDestination} Adventure`
+                  : 'Petualangan Baru'}
               </h1>
+
+              {/* Mobile Quick AI Chat Button in Header */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className="lg:hidden flex items-center gap-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 text-xs font-bold text-emerald-400 shrink-0 active:scale-95 transition"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Chat AI</span>
+              </button>
             </div>
 
             {/* Date Range Badge Pill matching mockup */}
-            {itinerary && (
-              <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-[#12161f] px-3.5 py-1.5 text-xs font-semibold text-slate-300">
+            {itinerary ? (
+              <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-slate-800 bg-[#12161f] px-3 py-1.5 text-xs font-semibold text-slate-300">
                 <Calendar className="h-3.5 w-3.5 text-slate-400" />
                 <span>{formatRangeDates(itinerary.start_date, itinerary.end_date)}</span>
               </div>
-            )}
+            ) : hasAskedAi ? (
+              <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-slate-800 bg-[#12161f] px-3 py-1.5 text-xs font-semibold text-slate-300">
+                <Calendar className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Estimasi {inferredDayCount} Hari · {inferredDestination}</span>
+              </div>
+            ) : null}
           </div>
 
           {/* Navigation Tabs Bar (Overview, Map, Expenses, Chat) */}
-          <nav className="flex items-center border-b border-slate-800/80 px-6 gap-8">
+          <nav className="flex items-center border-b border-slate-800/80 px-4 sm:px-6 gap-5 sm:gap-8 overflow-x-auto thin-scrollbar">
             <button
               type="button"
               onClick={() => {
                 setActiveTab('overview')
                 setSelectedDay(null)
               }}
-              className={`relative py-3.5 text-xs font-bold uppercase tracking-wider transition ${
+              className={`relative py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition ${
                 activeTab === 'overview'
                   ? 'text-emerald-400 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-500'
                   : 'text-slate-400 hover:text-slate-200'
@@ -707,7 +831,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('map')}
-              className={`relative py-3.5 text-xs font-bold uppercase tracking-wider transition ${
+              className={`relative py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition ${
                 activeTab === 'map'
                   ? 'text-emerald-400 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-500'
                   : 'text-slate-400 hover:text-slate-200'
@@ -719,7 +843,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('expenses')}
-              className={`relative py-3.5 text-xs font-bold uppercase tracking-wider transition ${
+              className={`relative py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition ${
                 activeTab === 'expenses'
                   ? 'text-emerald-400 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-500'
                   : 'text-slate-400 hover:text-slate-200'
@@ -732,18 +856,18 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('chat')}
-              className={`lg:hidden relative py-3.5 text-xs font-bold uppercase tracking-wider transition ${
+              className={`lg:hidden relative py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition ${
                 activeTab === 'chat'
                   ? 'text-emerald-400 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-500'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Chat
+              Chat AI
             </button>
           </nav>
 
           {/* Tab Content Display */}
-          <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto p-3.5 sm:p-6">
             {pageError && (
               <div className="mb-4 flex items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
                 <span>{pageError}</span>
@@ -760,13 +884,13 @@ export default function App() {
 
             {/* 1. MAP TAB: Works both before and after itinerary creation */}
             {activeTab === 'map' ? (
-              <div className="flex flex-col h-full min-h-[550px] space-y-4">
+              <div className="flex flex-col h-full min-h-[420px] sm:min-h-[550px] space-y-3 sm:space-y-4">
                 {itinerary && sortedDays.length > 0 && (
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 thin-scrollbar">
                     <button
                       type="button"
                       onClick={() => setSelectedDay(null)}
-                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
                         selectedDay === null
                           ? 'bg-emerald-500 text-white shadow-md'
                           : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -779,7 +903,7 @@ export default function App() {
                         key={day}
                         type="button"
                         onClick={() => setSelectedDay(day)}
-                        className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                        className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
                           selectedDay === day
                             ? 'bg-emerald-500 text-white shadow-md'
                             : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -791,41 +915,68 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="flex-1 min-h-[480px]">
+                <div className="flex-1 min-h-[380px] sm:min-h-[480px]">
                   <TravelMap
                     items={itinerary?.items || []}
-                    destination={itinerary?.destination || 'Bali'}
+                    destination={inferredDestination}
                     selectedDay={selectedDay}
                     selectedPlace={selectedPlace}
                     onSelectPlace={(item) => setSelectedPlace(item as ItineraryItem)}
-                    className="h-full w-full min-h-[480px]"
+                    className="h-full w-full min-h-[380px] sm:min-h-[480px]"
                   />
                 </div>
               </div>
-            ) : activeTab === 'expenses' && itinerary ? (
-              /* 2. EXPENSES TAB: Budget & Cost Breakdown */
+            ) : activeTab === 'expenses' ? (
+              /* 2. EXPENSES TAB: Detailed Cost Breakdown (Always works with itinerary or inferred trip context) */
               <ExpensesView
-                destination={itinerary.destination}
-                items={itinerary.items}
-                dayCount={dayCount}
+                destination={inferredDestination}
+                items={itinerary?.items || []}
+                dayCount={inferredDayCount}
               />
             ) : !itinerary ? (
-              /* Empty state before trip is created (Overview / Expenses without trip) */
-              <div className="grid min-h-[50vh] place-items-center text-center p-6">
+              /* Empty state before trip is created (Overview without saved itinerary) */
+              <div className="grid min-h-[45vh] place-items-center text-center p-4 sm:p-6">
                 <div className="max-w-md space-y-4">
-                  <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                    <Compass className="h-8 w-8 animate-pulse" />
+                  <div className="mx-auto grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                    <Compass className="h-7 w-7 sm:h-8 sm:w-8 animate-pulse" />
                   </div>
-                  <h3 className="font-display text-2xl font-bold text-white">
-                    {activeTab === 'expenses' ? 'Estimasi Anggaran Perjalanan' : 'Rencanakan Destinasi Impianmu'}
+                  <h3 className="font-display text-xl sm:text-2xl font-bold text-white">
+                    {hasAskedAi ? `Lanjutkan Rencana ke ${inferredDestination}` : 'Rencanakan Destinasi Impianmu'}
                   </h3>
                   <p className="text-xs sm:text-sm leading-relaxed text-slate-400">
-                    {activeTab === 'expenses'
-                      ? 'Buat rencana perjalanan terlebih dahulu melalui chat AI Assistant untuk melihat rincian biaya penginapan, kuliner, transportasi, dan tiket wisata.'
-                      : 'Ketik tujuan, tanggal liburan, dan preferensimu di panel chat AI Assistant. Rute akan mencari lokasi nyata, membuat kartu jadwal harian, dan menampilkan rute peta interaktif.'}
+                    {hasAskedAi
+                      ? `Kamu sedang mendiskusikan perjalanan ${inferredDayCount} hari ke ${inferredDestination}. Buka Chat AI untuk menyelesaikan detail atau cek tab Expenses & Map sekarang.`
+                      : 'Ketik tujuan, durasi liburan, dan preferensimu di panel Chat AI. Rute akan mencari lokasi nyata, menyusun jadwal harian, peta Google Maps, dan detail biaya.'}
                   </p>
+
+                  {hasAskedAi && (
+                    <div className="flex flex-wrap justify-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('chat')}
+                        className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-400 transition"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        <span>Buka Percakapan AI</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('expenses')}
+                        className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-[#161b23] px-4 py-2 text-xs font-semibold text-emerald-300 hover:bg-slate-800 transition"
+                      >
+                        <Wallet className="h-3.5 w-3.5" />
+                        <span>Lihat Detail Biaya ({inferredDestination})</span>
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap justify-center gap-2 pt-2">
                     {[
+                      {
+                        label: 'Labuan Bajo 5 hari 4 malam + sewa motor',
+                        prompt:
+                          'Buatkan langsung itinerary 5 hari 4 malam di Labuan Bajo mulai minggu depan, lengkap tempat wisata, makan 3x sehari, dan sewa motor',
+                      },
                       {
                         label: 'Liburan 3 hari ke Bali',
                         prompt: 'Buatkan itinerary liburan 3 hari ke Bali minggu depan, suka pantai dan kuliner, budget menengah',
@@ -834,16 +985,15 @@ export default function App() {
                         label: 'Wisata kuliner 2 hari di Bandung',
                         prompt: 'Buatkan itinerary wisata kuliner dan alam 2 hari di Bandung akhir pekan depan, budget hemat',
                       },
-                      {
-                        label: 'Trip 4 hari ke Yogyakarta',
-                        prompt: 'Buatkan itinerary liburan 4 hari ke Yogyakarta bulan depan bersama keluarga, suka budaya dan kuliner',
-                      },
                     ].map(({ label, prompt }) => (
                       <button
                         key={label}
                         type="button"
-                        onClick={() => void sendMessage(prompt)}
-                        className="rounded-xl border border-slate-800 bg-[#161b23] px-3 py-1.5 text-xs text-slate-300 hover:border-emerald-500 hover:text-emerald-400 transition"
+                        onClick={() => {
+                          if (window.innerWidth < 1024) setActiveTab('chat')
+                          void sendMessage(prompt)
+                        }}
+                        className="rounded-xl border border-slate-800 bg-[#161b23] px-3 py-2 text-xs text-slate-300 hover:border-emerald-500 hover:text-emerald-400 transition"
                       >
                         {label} &rarr;
                       </button>
@@ -852,9 +1002,9 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              /* 3. OVERVIEW TAB: Horizontal Scroll Cards + Map Preview */
-              <div className="flex flex-col 2xl:flex-row gap-6 h-full min-h-[560px]">
-                {/* Left/Center: Day Cards Carousel */}
+              /* 3. OVERVIEW TAB: Responsive Day Cards + Map Preview */
+              <div className="flex flex-col 2xl:flex-row gap-5 sm:gap-6 h-full min-h-[520px] pb-6">
+                {/* Left/Center: Day Cards List (Vertical stack on mobile, horizontal scroll on tablet/desktop) */}
                 <div className="flex-1 flex flex-col min-w-0">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -871,8 +1021,8 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Horizontal Scroll Cards List */}
-                  <div className="flex gap-4 overflow-x-auto pb-4 pt-1 thin-scrollbar">
+                  {/* Cards List */}
+                  <div className="flex flex-col sm:flex-row gap-4 sm:overflow-x-auto pb-4 pt-1 thin-scrollbar">
                     {sortedDays.map((day) => (
                       <div
                         key={day}
@@ -894,7 +1044,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Right: Map Preview Widget matching Mockup */}
+                {/* Right: Map Preview Widget */}
                 <div className="w-full 2xl:w-[380px] xl:w-[420px] h-[340px] 2xl:h-full min-h-[300px] shrink-0">
                   <TravelMap
                     items={itinerary.items}
@@ -910,6 +1060,59 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      {/* Persistent Mobile Bottom Navigation Bar (< 1024px) */}
+      <nav
+        className="lg:hidden flex items-center justify-around border-t border-slate-800/90 bg-[#0d1117]/95 px-2 py-1.5 backdrop-blur-md shrink-0 z-40"
+        aria-label="Navigasi Utama Mobile"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('overview')}
+          className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition ${
+            activeTab === 'overview' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <LayoutGrid className="h-4 w-4" />
+          <span>Menu / Jadwal</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('map')}
+          className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition ${
+            activeTab === 'map' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <MapIcon className="h-4 w-4" />
+          <span>Peta Rute</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('expenses')}
+          className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition ${
+            activeTab === 'expenses' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Wallet className="h-4 w-4" />
+          <span>Detail Biaya</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('chat')}
+          className={`relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition ${
+            activeTab === 'chat' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <MessageSquare className="h-4 w-4" />
+          <span>Chat AI</span>
+          {isLoading && (
+            <span className="absolute top-1.5 right-6 h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+          )}
+        </button>
+      </nav>
     </div>
   )
 }

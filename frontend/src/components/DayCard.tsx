@@ -66,7 +66,7 @@ export function DayCard({
   const displayedItems = showAllItems ? items : items.slice(0, 4)
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#151b23] shadow-md transition-all hover:border-slate-700 hover:shadow-xl w-full min-w-[300px] max-w-[340px] shrink-0">
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#151b23] shadow-md transition-all hover:border-slate-700 hover:shadow-xl w-full sm:w-[310px] sm:min-w-[300px] sm:max-w-[340px] shrink-0">
       {/* Cover Image Banner */}
       <div className="relative h-40 w-full overflow-hidden bg-slate-900">
         <img
