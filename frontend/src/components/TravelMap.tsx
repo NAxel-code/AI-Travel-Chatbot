@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import { Maximize2, Minimize2, MapPin, Navigation, ExternalLink, Layers } from 'lucide-react'
 
@@ -50,17 +50,17 @@ const TILE_CONFIGS: Record<MapStyle, { url: string; label: string; attribution: 
   roadmap: {
     url: 'https://{s}.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}',
     label: 'Peta',
-    attribution: 'Map data ©2026 Google',
+    attribution: 'Map data Â©2026 Google',
   },
   hybrid: {
     url: 'https://{s}.google.com/vt/lyrs=y&hl=id&x={x}&y={y}&z={z}',
     label: 'Satelit',
-    attribution: 'Imagery ©2026 Google',
+    attribution: 'Imagery Â©2026 Google',
   },
   terrain: {
     url: 'https://{s}.google.com/vt/lyrs=p&hl=id&x={x}&y={y}&z={z}',
     label: 'Medan',
-    attribution: 'Terrain ©2026 Google',
+    attribution: 'Terrain Â©2026 Google',
   },
 }
 
@@ -84,7 +84,7 @@ function cleanPlaceQuery(title: string, locationName: string | null): string {
   const base = (locationName || title || '')
     .replace(/^(kunjungan ke|mengunjungi|wisata ke|explore|menjelajahi|makan siang di|makan malam di|sarapan di|check-in di|check in di|transfer ke|perjalanan ke|snorkeling di|trekking di|sunset di|sunrise di)\s+/i, '')
     .replace(/\s*\([^)]*\)\s*/g, ' ')
-    .split(/\s+(?:&|dan|serta|-|–|\/)\s+/i)[0]
+    .split(/\s+(?:&|dan|serta|-|â€“|\/)\s+/i)[0]
     .trim()
   return base || title
 }
@@ -351,7 +351,7 @@ export function TravelMap({
 
       const popupHtml = `
         <div class="gmaps-popup-card">
-          <div class="gmaps-popup-badge">Hari ${stop.day_number} · Titik #${stop.stopNumber}</div>
+          <div class="gmaps-popup-badge">Hari ${stop.day_number} Â· Titik #${stop.stopNumber}</div>
           <div class="gmaps-popup-title">${escapeHtml(stop.title)}</div>
           ${stop.location_name && stop.location_name !== stop.title ? `<div class="gmaps-popup-subtitle">${escapeHtml(stop.location_name)}</div>` : ''}
           ${stop.address ? `<div class="gmaps-popup-address">${escapeHtml(stop.address)}</div>` : ''}
@@ -446,7 +446,7 @@ export function TravelMap({
 
   return (
     <div
-      className={`relative flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#e5e3df] shadow-lg transition-all ${
+      className={`relative flex flex-col overflow-hidden rounded-3xl border border-stone-200 bg-[#e5e3df] shadow-sm transition-all ${
         isFullscreen ? 'fixed inset-4 z-50 rounded-2xl shadow-2xl' : className
       }`}
     >
@@ -455,7 +455,7 @@ export function TravelMap({
         <div className="flex items-center gap-2 rounded-xl bg-white/95 px-3 py-1.5 shadow-md border border-slate-200/80 text-slate-800 backdrop-blur-sm">
           <MapPin className="h-4 w-4 text-[#ea4335] shrink-0" />
           <span className="text-xs font-bold tracking-tight truncate max-w-[160px] sm:max-w-[240px]">
-            {destination} {selectedDay ? `· Hari ${selectedDay}` : ''}
+            {destination} {selectedDay ? `Â· Hari ${selectedDay}` : ''}
           </span>
           {resolvedStops.length > 0 && (
             <span className="rounded-full bg-[#e8f0fe] px-2 py-0.5 text-[10px] font-bold text-[#1967d2] shrink-0">

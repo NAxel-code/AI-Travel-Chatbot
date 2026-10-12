@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import {
   Sparkles,
-  Paperclip,
   ArrowUp,
   ArrowLeft,
+  ArrowRight,
   Square,
   RotateCcw,
   Calendar,
-  MoreVertical,
+  CheckCircle2,
   X,
   Trash2,
   Database,
@@ -18,9 +18,10 @@ import {
   Wallet,
   MessageSquare,
   LayoutGrid,
-  FileText,
-  Download,
-  CheckCircle2,
+  Route,
+  Waves,
+  Mountain,
+  UtensilsCrossed,
 } from 'lucide-react'
 import { Markdown } from './components/Markdown'
 import { createIcs } from './lib/calendar'
@@ -49,6 +50,34 @@ const SESSION_STORAGE_KEY = 'travel_session_credentials'
 const LEGACY_SESSION_KEY = 'travel_session_id'
 const INITIAL_GREETING =
   'Halo! Mau liburan ke mana kali ini? Sebutkan destinasi (misal: Bali, Bandung, Labuan Bajo), durasi hari, dan gaya traveling favoritmu. Rute akan menyusun itinerary lengkap beserta peta dan perkiraan anggarannya!'
+
+const STARTER_PROMPTS = [
+  {
+    label: 'Labuan Bajo, 5 hari',
+    hint: 'Island hopping + sewa motor',
+    prompt:
+      'Buatkan langsung itinerary 5 hari 4 malam di Labuan Bajo mulai minggu depan, lengkap tempat wisata, makan 3x sehari, dan sewa motor',
+    Icon: Waves,
+  },
+  {
+    label: 'Bali, 3 hari',
+    hint: 'Pantai & kuliner, budget menengah',
+    prompt: 'Buatkan itinerary liburan 3 hari ke Bali minggu depan, suka pantai dan kuliner, budget menengah',
+    Icon: Mountain,
+  },
+  {
+    label: 'Bandung, akhir pekan',
+    hint: 'Kuliner & alam, budget hemat',
+    prompt: 'Buatkan itinerary wisata kuliner dan alam 2 hari di Bandung akhir pekan depan, budget hemat',
+    Icon: UtensilsCrossed,
+  },
+] as const
+
+const WORKSPACE_TABS = [
+  ['overview', 'Jadwal', LayoutGrid],
+  ['map', 'Peta', MapIcon],
+  ['expenses', 'Biaya', Wallet],
+] as const
 
 type Message = { role: 'user' | 'model'; content: string }
 type Credentials = { sessionId: string; token: string }
@@ -146,7 +175,7 @@ function formatRangeDates(start?: string, end?: string): string {
     const e = new Date(`${end}T00:00:00Z`)
     const monthFormatter = new Intl.DateTimeFormat('id-ID', { month: 'short', timeZone: 'UTC' })
     const dayCount = calculateDayCount(start, end)
-    return `${dayCount} Hari — ${s.getUTCDate()} ${monthFormatter.format(s)} - ${e.getUTCDate()} ${monthFormatter.format(e)}`
+    return `${dayCount} Hari â€” ${s.getUTCDate()} ${monthFormatter.format(s)} - ${e.getUTCDate()} ${monthFormatter.format(e)}`
   } catch {
     return `${start} - ${end}`
   }
@@ -158,6 +187,7 @@ export default function App() {
   const [input, setInput] = useState('')
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
+  const [isStartingSession, setIsStartingSession] = useState(false)
   const [chatProgress, setChatProgress] = useState<string | null>(null)
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [preferences, setPreferences] = useState<Preference[]>([])
@@ -166,9 +196,7 @@ export default function App() {
   const [pageError, setPageError] = useState<string | null>(null)
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0)
-  const [activeTab, setActiveTab] = useState<TabType>(() =>
-    typeof window !== 'undefined' && window.innerWidth < 1024 ? 'chat' : 'overview',
-  )
+  const [activeTab, setActiveTab] = useState<TabType>('chat')
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<ItineraryItem | null>(null)
 
@@ -224,7 +252,14 @@ export default function App() {
         setItinerary(itineraryResult.data ?? cached.itinerary ?? null)
         setPreferences(preferenceResult.data.length ? preferenceResult.data : cached.preferences ?? [])
       } catch (error) {
-        if (active) setPageError(error instanceof Error ? error.message : 'Aplikasi tidak dapat dimuat.')
+        if (active)
+          setPageError(
+            error instanceof TypeError
+              ? 'Server Rute tidak dapat dihubungi. Periksa koneksi lalu coba lagi.'
+              : error instanceof Error
+              ? error.message
+              : 'Aplikasi tidak dapat dimuat.',
+          )
       } finally {
         if (active) setIsBootstrapping(false)
       }
@@ -270,7 +305,7 @@ export default function App() {
     setInput('')
     setPageError(null)
     setLastFailedMessage(null)
-    setChatProgress('Menghubungkan ke perencana…')
+    setChatProgress('Menghubungkan ke perencanaâ€¦')
     setIsLoading(true)
     setMessages((current) => [...current, { role: 'user', content: cleanMessage }, { role: 'model', content: '' }])
 
@@ -401,22 +436,50 @@ export default function App() {
 
   function refineDay(day: number) {
     setInput(`Ubah itinerary hari ke-${day}: `)
-    inputRef.current?.focus()
-    if (window.innerWidth < 1024) {
-      setActiveTab('chat')
-    }
+    setActiveTab('chat')
+    window.setTimeout(() => inputRef.current?.focus(), 50)
   }
 
   function startNewTrip() {
     setSelectedDay(null)
     setSelectedPlace(null)
     setInput('Rencanakan perjalanan baru ke: ')
-    if (window.innerWidth < 1024) {
-      setActiveTab('chat')
-    } else {
-      setActiveTab('overview')
-    }
+    setActiveTab('chat')
     window.setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  async function startNewSession() {
+    if (isLoading || isStartingSession) return
+    setIsStartingSession(true)
+    try {
+      abortRef.current?.abort()
+      localStorage.removeItem(SESSION_STORAGE_KEY)
+      localStorage.removeItem(LEGACY_SESSION_KEY)
+      const session = await createSession()
+      setCredentials(session)
+      setMessages([{ role: 'model', content: INITIAL_GREETING }])
+      setItinerary(null)
+      setPreferences([])
+      setInput('')
+      setSelectedDay(null)
+      setSelectedPlace(null)
+      setLastFailedMessage(null)
+      setPageError(null)
+      setShowPreferences(false)
+      setActiveTab('chat')
+      addNotice('Sesi baru dimulai. Mulai rencanakan perjalanan dari awal.')
+      window.setTimeout(() => inputRef.current?.focus(), 50)
+    } catch (error) {
+      const message =
+        error instanceof ApiError && error.status === 429
+          ? 'Terlalu banyak sesi baru. Coba lagi beberapa saat.'
+          : error instanceof Error
+          ? error.message
+          : 'Sesi baru tidak dapat dibuat.'
+      setPageError(message)
+    } finally {
+      setIsStartingSession(false)
+    }
   }
 
   function exportCalendar() {
@@ -505,130 +568,114 @@ export default function App() {
     })
   }
 
+  // On desktop the workspace is always visible; when the chat tab is active it shows the schedule.
+  const workspaceTab: Exclude<TabType, 'chat'> = activeTab === 'chat' ? 'overview' : activeTab
+
+  function runStarter(prompt: string) {
+    setActiveTab('chat')
+    void sendMessage(prompt)
+  }
+
   if (isBootstrapping) {
     return (
-      <main className="grid min-h-[100dvh] place-items-center bg-[#0c1015] px-6 text-white">
-        <div className="flex items-center gap-3 text-sm text-slate-400">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-400" />
-          Memuat petualanganmu bersama Rute…
+      <main className="grid min-h-[100dvh] place-items-center bg-[#faf8f4] px-6">
+        <div className="flex items-center gap-3 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm text-stone-600 shadow-sm">
+          <Loader2 className="h-5 w-5 animate-spin text-teal-700" />
+          Menyiapkan perjalananmu…
         </div>
       </main>
     )
   }
 
   return (
-    <div className="app-shell flex h-[100dvh] w-full flex-col overflow-hidden bg-[#0c1015] text-slate-100 antialiased">
-      {/* Top Navigation Bar */}
+    <div className="app-shell flex h-[100dvh] w-full flex-col overflow-hidden bg-[#faf8f4] text-stone-800 antialiased">
       <Navbar
         destination={itinerary?.destination || (hasAskedAi ? inferredDestination : undefined)}
         hasItinerary={Boolean(itinerary) || hasAskedAi}
-        onSearch={(query) => void sendMessage(`Cari rekomendasi tempat terkait: ${query}`)}
+        onSearch={(query) => {
+          setActiveTab('chat')
+          void sendMessage(`Cari rekomendasi tempat terkait: ${query}`)
+        }}
         onExportPdf={handleExportReport}
         onExportCalendar={exportCalendar}
-        onTogglePreferences={() => setShowPreferences((v) => !v)}
+        onTogglePreferences={() => {
+          setActiveTab('chat')
+          setShowPreferences((v) => !v)
+        }}
         onNewTrip={startNewTrip}
+        onNewSession={startNewSession}
+        isStartingSession={isStartingSession}
       />
 
-      {/* Main App Dashboard (2-Column Layout) */}
-      <div className="flex min-h-0 flex-1 overflow-hidden p-2 sm:p-4 lg:p-5 gap-4">
-        {/* Left Column: AI Assistant (Chat Sidebar) */}
+      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden p-2 sm:p-4 lg:p-5">
+        {/* ───────── Chat panel ───────── */}
         <aside
-          className={`flex h-full flex-col rounded-2xl sm:rounded-3xl border border-slate-800/80 bg-[#151b23] shadow-2xl transition-all ${
-            activeTab === 'chat' ? 'w-full' : 'hidden lg:flex lg:w-[380px] xl:w-[420px]'
-          } shrink-0`}
+          className={`min-h-0 flex-col overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm shadow-stone-900/[0.03] ${
+            activeTab === 'chat' ? 'flex w-full' : 'hidden'
+          } lg:flex lg:w-[400px] lg:shrink-0 xl:w-[440px]`}
         >
-          {/* Chat Header */}
-          <header className="flex items-center justify-between border-b border-slate-800/80 px-3.5 sm:px-4 py-3">
-            <div className="flex items-center gap-2.5">
-              {/* Mobile Back to Menu button in header */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('overview')}
-                className="lg:hidden flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-[#1a222d] px-2.5 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-slate-800 active:scale-95 transition"
-                aria-label="Kembali ke Menu"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                <span>Menu</span>
-              </button>
-
-              {/* Bot Avatar Icon matching mockup */}
-              <div className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
-                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+          <header className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="relative grid h-10 w-10 place-items-center rounded-2xl bg-teal-50 text-teal-700">
+                <Sparkles className="h-5 w-5" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-white leading-none">Rute</h2>
-                <p className="mt-1 text-[11px] font-medium text-slate-400">AI Travel Assistant</p>
+                <h2 className="text-sm font-bold leading-none text-stone-900">Asisten Rute</h2>
+                <p className="mt-1 text-xs text-stone-500">
+                  {isLoading ? 'Sedang menyusun…' : 'Siap membantu rencanamu'}
+                </p>
               </div>
             </div>
-
-            <div className="flex items-center gap-1.5">
-              {hasAskedAi && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleExportReport}
-                    className="lg:hidden flex items-center gap-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/25 transition"
-                    title="Unduh Dokumen Laporan Perjalanan"
-                  >
-                    <FileText className="h-3 w-3" />
-                    <span>Laporan</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('expenses')}
-                    className="lg:hidden rounded-xl border border-slate-700 bg-[#1a222d] px-2.5 py-1.5 text-[11px] font-semibold text-amber-300 hover:bg-slate-800 transition"
-                  >
-                    Biaya
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowPreferences((v) => !v)}
-                className={`grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition ${
-                  showPreferences ? 'bg-slate-800 text-white' : ''
-                }`}
-                title="Kelola Preferensi & Memori"
-                aria-label="Pengaturan"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowPreferences((v) => !v)}
+              aria-expanded={showPreferences}
+              className={`flex min-h-[40px] items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
+                showPreferences
+                  ? 'bg-teal-700 text-white'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+              }`}
+              title="Kelola preferensi yang diingat"
+            >
+              <Database className="h-3.5 w-3.5" />
+              Memori{preferences.length > 0 ? ` · ${preferences.length}` : ''}
+            </button>
           </header>
 
-          {/* Preferences Memory Drawer */}
           {showPreferences && (
-            <section className="border-b border-slate-800 bg-[#12161f] px-4 py-3 text-xs" aria-label="Preferensi tersimpan">
-              <div className="mb-2 flex items-center justify-between text-slate-400">
-                <div className="flex items-center gap-2 font-semibold uppercase tracking-wider text-[11px]">
-                  <Database className="h-3.5 w-3.5 text-emerald-400" /> Memori Preferensi
-                </div>
+            <section className="animate-rise border-b border-stone-100 bg-stone-50/80 px-4 py-3" aria-label="Preferensi tersimpan">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold text-stone-500">Hal yang Rute ingat tentangmu</p>
                 <button
                   type="button"
                   onClick={() => setShowPreferences(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="grid h-8 w-8 place-items-center rounded-full text-stone-400 hover:bg-stone-200 hover:text-stone-700"
+                  aria-label="Tutup memori"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
               {preferences.length === 0 ? (
-                <p className="text-slate-400 text-xs">Belum ada preferensi tersimpan dari percakapan.</p>
+                <p className="text-xs text-stone-500">
+                  Belum ada. Sebutkan hal seperti “suka pantai” atau “budget hemat” di chat.
+                </p>
               ) : (
-                <ul className="space-y-1.5 max-h-32 overflow-y-auto thin-scrollbar pr-1">
+                <ul className="thin-scrollbar flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
                   {preferences.map((p) => (
                     <li
                       key={p.preference_category}
-                      className="flex items-center justify-between gap-2 rounded-lg bg-slate-800/60 px-2.5 py-1.5 text-slate-300"
+                      className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white py-1 pl-3 pr-1 text-xs text-stone-700"
                     >
-                      <span className="truncate">
-                        <strong className="text-emerald-400 capitalize">{p.preference_category.replaceAll('_', ' ')}: </strong>
-                        <span>{p.preference_value}</span>
+                      <span className="font-semibold capitalize text-teal-800">
+                        {p.preference_category.replaceAll('_', ' ')}:
                       </span>
+                      <span className="max-w-[160px] truncate">{p.preference_value}</span>
                       <button
                         type="button"
                         onClick={() => void deletePreference(p.preference_category)}
-                        className="text-slate-400 hover:text-rose-400 transition"
-                        title="Hapus preferensi"
+                        className="grid h-6 w-6 place-items-center rounded-full text-stone-400 transition hover:bg-rose-50 hover:text-rose-600"
+                        aria-label={`Hapus preferensi ${p.preference_category}`}
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -639,56 +686,54 @@ export default function App() {
             </section>
           )}
 
-          {/* Notice alerts */}
           {notices.length > 0 && (
-            <div className="px-3 pt-2 space-y-1">
+            <div className="space-y-1.5 px-4 pt-3" role="status">
               {notices.map((n) => (
                 <div
                   key={n.id}
-                  className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-[11px] text-emerald-300"
+                  className="animate-rise flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800"
                 >
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
                   {n.message}
                 </div>
               ))}
             </div>
           )}
 
-          {/* Chat Messages Stream */}
-          <div className="thin-scrollbar flex-1 space-y-4 overflow-y-auto p-3.5 sm:p-4" aria-live="polite">
+          {/* Messages */}
+          <div className="thin-scrollbar flex-1 space-y-4 overflow-y-auto px-4 py-4" aria-live="polite">
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
-                className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}
+                className={`animate-rise flex ${message.role === 'user' ? 'justify-end' : 'justify-start gap-2.5'}`}
               >
-                {/* Bot Tag */}
                 {message.role === 'model' && (
-                  <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400">
-                    <div className="grid h-4 w-4 place-items-center rounded-full bg-emerald-500/20 text-emerald-400">
-                      <Sparkles className="h-2.5 w-2.5" />
-                    </div>
-                    <span>Rute</span>
+                  <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-teal-700 text-white">
+                    <Route className="h-3.5 w-3.5" />
                   </div>
                 )}
-
-                {/* Message Bubble */}
                 <div
-                  className={`max-w-[92%] sm:max-w-[88%] text-xs sm:text-sm leading-relaxed ${
+                  className={`max-w-[85%] text-sm leading-relaxed ${
                     message.role === 'user'
-                      ? 'rounded-2xl rounded-tr-sm bg-emerald-600 px-4 py-2.5 text-white shadow-md'
-                      : 'rounded-2xl rounded-tl-sm bg-[#1e2530] border border-slate-700/60 px-4 py-3 text-slate-200 shadow-md'
+                      ? 'rounded-3xl rounded-br-md bg-teal-700 px-4 py-2.5 text-white'
+                      : 'rounded-3xl rounded-tl-md bg-stone-100 px-4 py-3 text-stone-800'
                   }`}
                 >
                   {message.role === 'model' && !message.content ? (
-                    <span className="flex items-center gap-2 text-slate-400">
-                      <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+                    <span className="flex items-center gap-2 text-stone-500">
+                      <span className="flex gap-1" aria-hidden="true">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600 [animation-delay:-0.3s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600 [animation-delay:-0.15s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600" />
+                      </span>
                       {chatProgress || 'Menyusun rute terbaik…'}
                     </span>
                   ) : message.role === 'model' ? (
                     <>
                       <Markdown content={message.content} />
                       {index === messages.length - 1 && isLoading && chatProgress && (
-                        <div className="mt-2.5 flex items-center gap-2 border-t border-slate-700/60 pt-2 text-[11px] text-slate-400">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
+                        <div className="mt-2.5 flex items-center gap-2 border-t border-stone-200 pt-2 text-xs text-stone-500">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-700" />
                           <span>{chatProgress}</span>
                         </div>
                       )}
@@ -700,39 +745,50 @@ export default function App() {
               </div>
             ))}
 
-            {/* Post-AI Question Quick Navigation Bar on Mobile */}
+            {/* Starter prompts on a fresh conversation */}
+            {!hasAskedAi && !isLoading && (
+              <div className="animate-rise space-y-2 pl-9">
+                <p className="text-xs font-semibold text-stone-500">Coba mulai dengan:</p>
+                <div className="flex flex-col gap-2">
+                  {STARTER_PROMPTS.map(({ label, hint, prompt, Icon }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => runStarter(prompt)}
+                      className="group flex min-h-[52px] items-center gap-3 rounded-2xl border border-stone-200 bg-white px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-teal-600/40 hover:shadow-md hover:shadow-stone-900/5 active:translate-y-0"
+                    >
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700 transition group-hover:bg-teal-50 group-hover:text-teal-700">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-stone-800">{label}</span>
+                        <span className="block text-xs text-stone-500">{hint}</span>
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-stone-300 transition group-hover:translate-x-0.5 group-hover:text-teal-700" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mobile-only shortcut to the workspace tabs */}
             {hasAskedAi && !isLoading && (
-              <div className="lg:hidden pt-1 pb-2">
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
-                  <div className="text-[11px] font-semibold text-emerald-300">
-                    Navigasi Cepat ({inferredDestination} · {inferredDayCount} Hari):
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
+              <div className="lg:hidden rounded-2xl border border-stone-200 bg-stone-50 p-3">
+                <p className="mb-2 text-xs font-semibold text-stone-600">
+                  {inferredDestination} · {inferredDayCount} hari
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {WORKSPACE_TABS.map(([tab, label, Icon]) => (
                     <button
+                      key={tab}
                       type="button"
-                      onClick={() => setActiveTab('overview')}
-                      className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-400 active:scale-95 transition"
+                      onClick={() => setActiveTab(tab)}
+                      className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white text-xs font-semibold text-stone-700 transition active:scale-[0.97]"
                     >
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                      <span>Kembali ke Menu</span>
+                      <Icon className="h-4 w-4 text-teal-700" />
+                      {label}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('map')}
-                      className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-[#161b23] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 active:scale-95 transition"
-                    >
-                      <MapIcon className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>Lihat Peta</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('expenses')}
-                      className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-[#161b23] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 active:scale-95 transition"
-                    >
-                      <Wallet className="h-3.5 w-3.5 text-amber-400" />
-                      <span>Detail Biaya</span>
-                    </button>
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -740,351 +796,278 @@ export default function App() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Chat Footer Input */}
-          <footer className="border-t border-slate-800/80 p-2.5 sm:p-3 bg-[#12161f]/90 rounded-b-2xl sm:rounded-b-3xl">
+          {/* Composer */}
+          <footer className="border-t border-stone-100 p-3">
             {lastFailedMessage && !isLoading && (
               <button
                 type="button"
                 onClick={() => void sendMessage(lastFailedMessage)}
-                className="mb-2 flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:underline"
+                className="mb-2 flex min-h-[40px] items-center gap-1.5 rounded-full bg-rose-50 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100"
               >
-                <RotateCcw className="h-3 w-3" /> Coba kirim ulang
+                <RotateCcw className="h-4 w-4" /> Coba kirim ulang
               </button>
             )}
-
-            <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
-              <div className="flex-1 relative flex items-center rounded-2xl border border-slate-800 bg-[#161b23] px-2.5 sm:px-3 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition">
-                {/* Paperclip attachment icon toggles preference memory */}
+            <form
+              onSubmit={handleSubmit}
+              className="flex items-end gap-2 rounded-3xl border border-stone-200 bg-stone-50 p-1.5 transition focus-within:border-teal-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-teal-600/10"
+            >
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+                disabled={isLoading}
+                maxLength={4000}
+                rows={1}
+                aria-label="Pesan untuk Rute"
+                placeholder="Mau liburan ke mana?"
+                className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-base text-stone-800 placeholder:text-stone-400 focus:outline-none disabled:opacity-60 sm:text-sm"
+              />
+              {isLoading ? (
                 <button
                   type="button"
-                  onClick={() => setShowPreferences((v) => !v)}
-                  className="text-slate-400 hover:text-slate-200 p-1.5 transition"
-                  title="Kelola & lampirkan preferensi"
+                  onClick={cancelRequest}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-stone-800 text-white transition hover:bg-stone-900"
+                  title="Hentikan"
+                  aria-label="Hentikan"
                 >
-                  <Paperclip className="h-4 w-4" />
+                  <Square className="h-4 w-4 fill-current" />
                 </button>
-
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleInputKeyDown}
-                  disabled={isLoading}
-                  maxLength={4000}
-                  rows={1}
-                  placeholder="Ketik pesan atau tujuan liburanmu..."
-                  className="max-h-24 min-h-[42px] flex-1 resize-none bg-transparent py-2.5 px-2 text-xs sm:text-sm text-slate-100 placeholder:text-slate-400 focus:outline-none disabled:opacity-60"
-                />
-
-                {/* Send Button matching green circular button in mockup */}
-                {isLoading ? (
-                  <button
-                    type="button"
-                    onClick={cancelRequest}
-                    className="grid h-8 w-8 place-items-center rounded-xl bg-rose-600 text-white hover:bg-rose-500 transition"
-                    title="Batalkan"
-                  >
-                    <Square className="h-3.5 w-3.5 fill-current" />
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={isLoading || !input.trim()}
-                    className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed transition shadow-md shadow-emerald-500/20"
-                    title="Kirim pesan"
-                  >
-                    <ArrowUp className="h-4 w-4 stroke-[2.5]" />
-                  </button>
-                )}
-              </div>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-teal-700 text-white shadow-sm transition hover:bg-teal-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-stone-300"
+                  title="Kirim pesan"
+                  aria-label="Kirim pesan"
+                >
+                  <ArrowUp className="h-5 w-5 stroke-[2.5]" />
+                </button>
+              )}
             </form>
+            <p className="mt-1.5 hidden px-2 text-[11px] text-stone-400 sm:block">
+              Enter untuk kirim · Shift+Enter baris baru · Verifikasi harga & jam buka sebelum berangkat
+            </p>
           </footer>
         </aside>
 
-        {/* Right Column: Main Dashboard Workspace */}
+        {/* ───────── Workspace panel ───────── */}
         <main
-          className={`flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-800/80 bg-[#151b23] shadow-2xl ${
-            activeTab === 'chat' ? 'hidden lg:flex' : 'flex'
-          }`}
+          className={`min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm shadow-stone-900/[0.03] ${
+            activeTab === 'chat' ? 'hidden' : 'flex'
+          } lg:flex`}
         >
-          {/* Workspace Top Header: Destination Title & Date Badge */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 px-4 sm:px-6 pt-4 sm:pt-5 pb-3 gap-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="font-display text-xl sm:text-3xl font-extrabold tracking-tight text-white truncate">
-                {itinerary?.destination
-                  ? `${itinerary.destination} Adventure`
-                  : hasAskedAi
-                  ? `${inferredDestination} Adventure`
-                  : 'Petualangan Baru'}
-              </h1>
-
-              {/* Mobile Quick AI Chat Button in Header */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('chat')}
-                className="lg:hidden flex items-center gap-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 text-xs font-bold text-emerald-400 shrink-0 active:scale-95 transition"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Chat AI</span>
-              </button>
+          <div className="flex flex-col gap-3 border-b border-stone-100 px-4 pb-3 pt-4 sm:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('chat')}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-stone-200 text-stone-600 hover:bg-stone-50 lg:hidden"
+                  aria-label="Kembali ke chat"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                    {itinerary ? 'Itinerary tersimpan' : hasAskedAi ? 'Draf rencana' : 'Rencana baru'}
+                  </p>
+                  <h1 className="truncate font-display text-2xl font-bold text-stone-900 sm:text-3xl">
+                    {itinerary?.destination || (hasAskedAi ? inferredDestination : 'Ke mana kita pergi?')}
+                  </h1>
+                </div>
+              </div>
+              {(itinerary || hasAskedAi) && (
+                <div className="flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-semibold text-stone-600">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {itinerary
+                    ? formatRangeDates(itinerary.start_date, itinerary.end_date)
+                    : `Estimasi ${inferredDayCount} hari`}
+                </div>
+              )}
             </div>
 
-            {/* Date Range Badge Pill matching mockup */}
-            {itinerary ? (
-              <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-slate-800 bg-[#12161f] px-3 py-1.5 text-xs font-semibold text-slate-300">
-                <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                <span>{formatRangeDates(itinerary.start_date, itinerary.end_date)}</span>
-              </div>
-            ) : hasAskedAi ? (
-              <div className="flex items-center gap-2 self-start sm:self-auto rounded-xl border border-slate-800 bg-[#12161f] px-3 py-1.5 text-xs font-semibold text-slate-300">
-                <Calendar className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Estimasi {inferredDayCount} Hari · {inferredDestination}</span>
-              </div>
-            ) : null}
+            {/* Segmented tabs */}
+            <nav
+              className="flex w-full gap-1 self-start rounded-full bg-stone-100 p-1 sm:w-auto"
+              aria-label="Tampilan rencana"
+            >
+              {WORKSPACE_TABS.map(([tab, label, Icon]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab)
+                    if (tab === 'overview') setSelectedDay(null)
+                  }}
+                  aria-current={workspaceTab === tab ? 'page' : undefined}
+                  className={`flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition sm:flex-none ${
+                    workspaceTab === tab
+                      ? 'bg-white text-teal-800 shadow-sm'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              ))}
+            </nav>
           </div>
 
-          {/* Navigation Tabs Bar (Overview, Map, Expenses, Chat) */}
-          <nav className="flex items-center border-b border-slate-800/80 px-4 sm:px-6 gap-5 sm:gap-8 overflow-x-auto thin-scrollbar">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('overview')
-                setSelectedDay(null)
-              }}
-              className={`relative py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition ${
-                activeTab === 'overview'
-                  ? 'text-emerald-400 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-500'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Overview
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('map')}
-              className={`relative py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition ${
-                activeTab === 'map'
-                  ? 'text-emerald-400 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-500'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Map
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('expenses')}
-              className={`relative py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition ${
-                activeTab === 'expenses'
-                  ? 'text-emerald-400 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-500'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Expenses
-            </button>
-
-            {/* Mobile / Direct Chat tab button */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('chat')}
-              className={`lg:hidden relative py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition ${
-                activeTab === 'chat'
-                  ? 'text-emerald-400 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-500'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Chat AI
-            </button>
-          </nav>
-
-          {/* Tab Content Display */}
-          <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto p-3.5 sm:p-6">
+          <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
             {pageError && (
-              <div className="mb-4 flex items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" role="alert">
                 <span>{pageError}</span>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={retryBootstrap} className="font-semibold underline hover:text-white">
+                <div className="flex shrink-0 items-center gap-2">
+                  <button type="button" onClick={retryBootstrap} className="font-semibold underline">
                     Coba lagi
                   </button>
-                  <button type="button" onClick={() => setPageError(null)} aria-label="Tutup pesan">
+                  <button
+                    type="button"
+                    onClick={() => setPageError(null)}
+                    className="grid h-8 w-8 place-items-center rounded-full hover:bg-rose-100"
+                    aria-label="Tutup pesan"
+                  >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             )}
 
-            {/* 1. MAP TAB: Works both before and after itinerary creation */}
-            {activeTab === 'map' ? (
-              <div className="flex flex-col h-full min-h-[420px] sm:min-h-[550px] space-y-3 sm:space-y-4">
-                {itinerary && sortedDays.length > 0 && (
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 thin-scrollbar">
+            {/* Day filter chips shared by map and overview */}
+            {itinerary && sortedDays.length > 1 && workspaceTab !== 'expenses' && (
+              <div className="thin-scrollbar mb-4 flex items-center gap-2 overflow-x-auto pb-1">
+                {[null, ...sortedDays].map((day) => (
+                  <button
+                    key={day ?? 'all'}
+                    type="button"
+                    onClick={() => setSelectedDay(day)}
+                    className={`min-h-[36px] shrink-0 rounded-full border px-4 text-xs font-semibold transition ${
+                      selectedDay === day
+                        ? 'border-teal-700 bg-teal-700 text-white'
+                        : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300'
+                    }`}
+                  >
+                    {day === null ? 'Semua hari' : `Hari ${day}`}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {workspaceTab === 'map' ? (
+              <TravelMap
+                items={itinerary?.items || []}
+                destination={inferredDestination}
+                selectedDay={selectedDay}
+                selectedPlace={selectedPlace}
+                onSelectPlace={(item) => setSelectedPlace(item as ItineraryItem)}
+                className="h-[calc(100%-3rem)] min-h-[420px] w-full"
+              />
+            ) : workspaceTab === 'expenses' ? (
+              <ExpensesView destination={inferredDestination} items={itinerary?.items || []} dayCount={inferredDayCount} />
+            ) : !itinerary ? (
+              <div className="mx-auto grid max-w-2xl gap-6 py-6 sm:py-10">
+                <div className="space-y-3">
+                  <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-50 text-amber-700">
+                    <Compass className="h-7 w-7" />
+                  </div>
+                  <h2 className="font-display text-3xl font-bold text-stone-900 sm:text-4xl">
+                    {hasAskedAi ? `Lanjutkan rencana ke ${inferredDestination}` : 'Ceritakan liburan impianmu.'}
+                  </h2>
+                  <p className="max-w-lg text-sm leading-relaxed text-stone-600 sm:text-base">
+                    {hasAskedAi
+                      ? `Detail perjalanan ${inferredDayCount} hari masih dibahas di chat. Begitu itinerary disimpan, jadwal harian dan peta akan muncul di sini.`
+                      : 'Tulis tujuan, berapa hari, dan gaya liburanmu. Rute mencari tempat nyata di OpenStreetMap, mengecek cuaca, lalu menyusun jadwal per hari.'}
+                  </p>
+                </div>
+
+                {hasAskedAi ? (
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => setSelectedDay(null)}
-                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
-                        selectedDay === null
-                          ? 'bg-emerald-500 text-white shadow-md'
-                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                      }`}
+                      onClick={() => {
+                        setActiveTab('chat')
+                        window.setTimeout(() => inputRef.current?.focus(), 50)
+                      }}
+                      className="flex min-h-[44px] items-center gap-2 rounded-full bg-teal-700 px-5 text-sm font-semibold text-white transition hover:bg-teal-800 lg:hidden"
                     >
-                      Semua Hari
+                      <MessageSquare className="h-4 w-4" /> Lanjut di chat
                     </button>
-                    {sortedDays.map((day) => (
+                    <button
+                      type="button"
+                      onClick={() => runStarter(`Simpan itinerary ${inferredDayCount} hari ke ${inferredDestination} sekarang`)}
+                      disabled={isLoading}
+                      className="flex min-h-[44px] items-center gap-2 rounded-full bg-stone-900 px-5 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:opacity-50"
+                    >
+                      <Sparkles className="h-4 w-4" /> Buatkan itinerary sekarang
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('expenses')}
+                      className="flex min-h-[44px] items-center gap-2 rounded-full border border-stone-200 px-5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50"
+                    >
+                      <Wallet className="h-4 w-4" /> Lihat estimasi biaya
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr]">
+                    {STARTER_PROMPTS.map(({ label, hint, prompt, Icon }, i) => (
                       <button
-                        key={day}
+                        key={label}
                         type="button"
-                        onClick={() => setSelectedDay(day)}
-                        className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
-                          selectedDay === day
-                            ? 'bg-emerald-500 text-white shadow-md'
-                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        onClick={() => runStarter(prompt)}
+                        disabled={isLoading}
+                        className={`group flex flex-col justify-between gap-3 rounded-3xl border p-5 text-left transition hover:-translate-y-1 hover:shadow-lg hover:shadow-stone-900/5 disabled:opacity-50 ${
+                          i === 0
+                            ? 'border-teal-800 bg-teal-800 text-white sm:row-span-2'
+                            : 'border-stone-200 bg-stone-50 text-stone-800 hover:border-stone-300'
                         }`}
                       >
-                        Hari {day}
+                        <Icon className={`h-6 w-6 ${i === 0 ? 'text-amber-300' : 'text-amber-700'}`} />
+                        <span>
+                          <span className={`block font-display font-bold ${i === 0 ? 'text-2xl' : 'text-lg'}`}>{label}</span>
+                          <span className={`mt-1 flex items-center gap-1 text-sm ${i === 0 ? 'text-teal-100' : 'text-stone-500'}`}>
+                            {hint}
+                            <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                          </span>
+                        </span>
                       </button>
                     ))}
                   </div>
                 )}
-
-                <div className="flex-1 min-h-[380px] sm:min-h-[480px]">
-                  <TravelMap
-                    items={itinerary?.items || []}
-                    destination={inferredDestination}
-                    selectedDay={selectedDay}
-                    selectedPlace={selectedPlace}
-                    onSelectPlace={(item) => setSelectedPlace(item as ItineraryItem)}
-                    className="h-full w-full min-h-[380px] sm:min-h-[480px]"
-                  />
-                </div>
-              </div>
-            ) : activeTab === 'expenses' ? (
-              /* 2. EXPENSES TAB: Detailed Cost Breakdown (Always works with itinerary or inferred trip context) */
-              <ExpensesView
-                destination={inferredDestination}
-                items={itinerary?.items || []}
-                dayCount={inferredDayCount}
-              />
-            ) : !itinerary ? (
-              /* Empty state before trip is created (Overview without saved itinerary) */
-              <div className="grid min-h-[45vh] place-items-center text-center p-4 sm:p-6">
-                <div className="max-w-md space-y-4">
-                  <div className="mx-auto grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                    <Compass className="h-7 w-7 sm:h-8 sm:w-8 animate-pulse" />
-                  </div>
-                  <h3 className="font-display text-xl sm:text-2xl font-bold text-white">
-                    {hasAskedAi ? `Lanjutkan Rencana ke ${inferredDestination}` : 'Rencanakan Destinasi Impianmu'}
-                  </h3>
-                  <p className="text-xs sm:text-sm leading-relaxed text-slate-400">
-                    {hasAskedAi
-                      ? `Kamu sedang mendiskusikan perjalanan ${inferredDayCount} hari ke ${inferredDestination}. Buka Chat AI untuk menyelesaikan detail atau cek tab Expenses & Map sekarang.`
-                      : 'Ketik tujuan, durasi liburan, dan preferensimu di panel Chat AI. Rute akan mencari lokasi nyata, menyusun jadwal harian, peta Google Maps, dan detail biaya.'}
-                  </p>
-
-                  {hasAskedAi && (
-                    <div className="flex flex-wrap justify-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('chat')}
-                        className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-400 transition"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        <span>Buka Percakapan AI</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('expenses')}
-                        className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-[#161b23] px-4 py-2 text-xs font-semibold text-emerald-300 hover:bg-slate-800 transition"
-                      >
-                        <Wallet className="h-3.5 w-3.5" />
-                        <span>Lihat Detail Biaya ({inferredDestination})</span>
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap justify-center gap-2 pt-2">
-                    {[
-                      {
-                        label: 'Labuan Bajo 5 hari 4 malam + sewa motor',
-                        prompt:
-                          'Buatkan langsung itinerary 5 hari 4 malam di Labuan Bajo mulai minggu depan, lengkap tempat wisata, makan 3x sehari, dan sewa motor',
-                      },
-                      {
-                        label: 'Liburan 3 hari ke Bali',
-                        prompt: 'Buatkan itinerary liburan 3 hari ke Bali minggu depan, suka pantai dan kuliner, budget menengah',
-                      },
-                      {
-                        label: 'Wisata kuliner 2 hari di Bandung',
-                        prompt: 'Buatkan itinerary wisata kuliner dan alam 2 hari di Bandung akhir pekan depan, budget hemat',
-                      },
-                    ].map(({ label, prompt }) => (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => {
-                          if (window.innerWidth < 1024) setActiveTab('chat')
-                          void sendMessage(prompt)
-                        }}
-                        className="rounded-xl border border-slate-800 bg-[#161b23] px-3 py-2 text-xs text-slate-300 hover:border-emerald-500 hover:text-emerald-400 transition"
-                      >
-                        {label} &rarr;
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
             ) : (
-              /* 3. OVERVIEW TAB: Responsive Day Cards + Map Preview */
-              <div className="flex flex-col 2xl:flex-row gap-5 sm:gap-6 h-full min-h-[520px] pb-6">
-                {/* Left/Center: Day Cards List (Vertical stack on mobile, horizontal scroll on tablet/desktop) */}
-                <div className="flex-1 flex flex-col min-w-0">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Jadwal Harian ({sortedDays.length} Hari)
-                    </span>
-                    {selectedDay && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDay(null)}
-                        className="text-xs text-emerald-400 hover:underline"
-                      >
-                        Tampilkan semua hari di peta
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Cards List */}
-                  <div className="flex flex-col sm:flex-row gap-4 sm:overflow-x-auto pb-4 pt-1 thin-scrollbar">
-                    {sortedDays.map((day) => (
-                      <div
-                        key={day}
-                        onClick={() => setSelectedDay(day)}
-                        className={`cursor-pointer transition-all ${
-                          selectedDay === day ? 'ring-2 ring-emerald-500 rounded-2xl scale-[1.01]' : ''
-                        }`}
-                      >
+              <div className="flex flex-col gap-5 pb-6 2xl:flex-row">
+                <div className="min-w-0 flex-1">
+                  <p className="mb-3 text-xs font-semibold text-stone-500">
+                    {sortedDays.length} hari · {itinerary.items.length} aktivitas · ketuk aktivitas untuk melihat di peta
+                  </p>
+                  <div className="thin-scrollbar flex flex-col gap-4 pb-3 sm:flex-row sm:overflow-x-auto">
+                    {sortedDays
+                      .filter((day) => selectedDay === null || day === selectedDay)
+                      .map((day) => (
                         <DayCard
+                          key={day}
                           dayNumber={day}
                           destination={itinerary.destination}
                           startDate={itinerary.start_date}
                           items={groupedItems[day] || []}
+                          isActive={selectedDay === day}
+                          onSelectDay={() => setSelectedDay(day)}
                           onRefineDay={refineDay}
                           onSelectPlace={(item) => setSelectedPlace(item)}
                         />
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
-
-                {/* Right: Map Preview Widget */}
-                <div className="w-full 2xl:w-[380px] xl:w-[420px] h-[340px] 2xl:h-full min-h-[300px] shrink-0">
+                <div className="h-[360px] w-full shrink-0 2xl:h-auto 2xl:min-h-[520px] 2xl:w-[400px]">
                   <TravelMap
                     items={itinerary.items}
                     destination={itinerary.destination}
                     selectedDay={selectedDay}
                     selectedPlace={selectedPlace}
                     onSelectPlace={(item) => setSelectedPlace(item as ItineraryItem)}
-                    className="h-full w-full min-h-[300px]"
+                    className="h-full min-h-[300px] w-full"
                   />
                 </div>
               </div>
@@ -1093,57 +1076,34 @@ export default function App() {
         </main>
       </div>
 
-      {/* Persistent Mobile Bottom Navigation Bar (< 1024px) */}
+      {/* Mobile bottom navigation */}
       <nav
-        className="lg:hidden flex items-center justify-around border-t border-slate-800/90 bg-[#0d1117]/95 px-2 py-1.5 backdrop-blur-md shrink-0 z-40"
-        aria-label="Navigasi Utama Mobile"
+        className="z-40 flex shrink-0 items-stretch justify-around border-t border-stone-200 bg-white px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 lg:hidden"
+        aria-label="Navigasi utama"
       >
-        <button
-          type="button"
-          onClick={() => setActiveTab('overview')}
-          className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition ${
-            activeTab === 'overview' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <LayoutGrid className="h-4 w-4" />
-          <span>Menu / Jadwal</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('map')}
-          className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition ${
-            activeTab === 'map' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <MapIcon className="h-4 w-4" />
-          <span>Peta Rute</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('expenses')}
-          className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition ${
-            activeTab === 'expenses' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Wallet className="h-4 w-4" />
-          <span>Detail Biaya</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('chat')}
-          className={`relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition ${
-            activeTab === 'chat' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <MessageSquare className="h-4 w-4" />
-          <span>Chat AI</span>
-          {isLoading && (
-            <span className="absolute top-1.5 right-6 h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-          )}
-        </button>
+        {([['chat', 'Chat', MessageSquare], ...WORKSPACE_TABS] as const).map(([tab, label, Icon]) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            aria-current={activeTab === tab ? 'page' : undefined}
+            className={`relative flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 text-xs font-semibold transition ${
+              activeTab === tab ? 'text-teal-800' : 'text-stone-400'
+            }`}
+          >
+            <span
+              className={`grid h-7 w-12 place-items-center rounded-full transition ${
+                activeTab === tab ? 'bg-teal-100' : ''
+              }`}
+            >
+              <Icon className="h-5 w-5" />
+            </span>
+            {label}
+            {tab === 'chat' && isLoading && activeTab !== 'chat' && (
+              <span className="absolute right-[calc(50%-1.25rem)] top-1.5 h-2 w-2 animate-ping rounded-full bg-teal-600" />
+            )}
+          </button>
+        ))}
       </nav>
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   DollarSign,
   PieChart,
@@ -344,9 +344,9 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       name: `Tiket Pesawat / Transport Utama (PP)`,
       amount: totalFlight,
       icon: Plane,
-      color: 'bg-sky-500',
-      textColor: 'text-sky-400',
-      detail: `${pax} orang × ${formatIdr(flightPerPerson)} (PP) + transfer bandara ${formatIdr(airportTransferTotal)}`,
+      color: 'bg-teal-700',
+      textColor: 'text-teal-700',
+      detail: `${pax} orang Ã— ${formatIdr(flightPerPerson)} (PP) + transfer bandara ${formatIdr(airportTransferTotal)}`,
       subItems: [
         { label: `Tiket Pulang-Pergi (${destination})`, value: `${formatIdr(flightPerPerson)} / org` },
         { label: 'Transport Bandara PP', value: formatIdr(airportTransferTotal) },
@@ -356,9 +356,9 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       name: `Penginapan (${effectiveNights} Malam)`,
       amount: totalHotel,
       icon: BedDouble,
-      color: 'bg-indigo-500',
-      textColor: 'text-indigo-400',
-      detail: `${effectiveNights} malam × ${roomsNeeded} kamar × ${formatIdr(hotelPerNight)}/malam`,
+      color: 'bg-teal-600',
+      textColor: 'text-teal-700',
+      detail: `${effectiveNights} malam Ã— ${roomsNeeded} kamar Ã— ${formatIdr(hotelPerNight)}/malam`,
       subItems: [
         { label: `Tarif Kamar (${tierLabel})`, value: `${formatIdr(hotelPerNight)} / malam` },
         { label: `Durasi Menginap`, value: `${effectiveNights} malam (${effectiveDays} hari)` },
@@ -368,9 +368,9 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       name: `Konsumsi & Makan 3x Sehari (${effectiveDays} Hari)`,
       amount: totalMeals3x,
       icon: Utensils,
-      color: 'bg-emerald-500',
-      textColor: 'text-emerald-400',
-      detail: `3x makan/hari + kopi (${effectiveDays * 3}x makan) × ${formatIdr(mealPerDayPerPerson)}/hari/org`,
+      color: 'bg-teal-500',
+      textColor: 'text-teal-800',
+      detail: `3x makan/hari + kopi (${effectiveDays * 3}x makan) Ã— ${formatIdr(mealPerDayPerPerson)}/hari/org`,
       subItems: [
         { label: 'Sarapan Pagi', value: `${formatIdr(breakfastCost)} / sekali makan` },
         { label: 'Makan Siang', value: `${formatIdr(lunchCost)} / sekali makan` },
@@ -382,9 +382,9 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       name: `Sewa Motor & BBM (${effectiveDays} Hari)`,
       amount: totalMotorAndFuel,
       icon: Bike,
-      color: 'bg-amber-500',
-      textColor: 'text-amber-400',
-      detail: `${effectiveDays} hari × ${motorsNeeded} unit motor (${formatIdr(motorPerDay)}/hr + BBM ${formatIdr(fuelPerDay)}/hr)`,
+      color: 'bg-cyan-700',
+      textColor: 'text-cyan-700',
+      detail: `${effectiveDays} hari Ã— ${motorsNeeded} unit motor (${formatIdr(motorPerDay)}/hr + BBM ${formatIdr(fuelPerDay)}/hr)`,
       subItems: [
         { label: 'Sewa Motor Matic (2helm + jas hujan)', value: `${formatIdr(motorPerDay)} / hari` },
         { label: 'Estimasi BBM (Pertamax/Pertalite)', value: `${formatIdr(fuelPerDay)} / hari` },
@@ -395,8 +395,8 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       name: 'Tiket Wisata, Kapal & Aktivitas',
       amount: totalAttractions,
       icon: Ticket,
-      color: 'bg-rose-500',
-      textColor: 'text-rose-400',
+      color: 'bg-amber-500',
+      textColor: 'text-stone-600',
       detail: `Tiket masuk destinasi, retribusi kawasan & aktivitas selama ${effectiveDays} hari`,
       subItems: [
         { label: 'Rata-rata Tiket & Aktivitas Harian', value: `${formatIdr(Math.round(totalAttractions / effectiveDays))} / hari` },
@@ -408,9 +408,9 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
   return (
     <div className="space-y-6 pb-20 max-w-4xl mx-auto">
       {/* Interactive Controls Bar: Budget Tier + Pax Count */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-[#12161f] p-3.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-3.5">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1.5">Gaya Budget:</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 mr-1.5">Gaya Budget:</span>
           {(['budget', 'standard', 'comfort'] as BudgetTier[]).map((t) => (
             <button
               key={t}
@@ -418,8 +418,8 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
               onClick={() => setTier(t)}
               className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
                 tier === t
-                  ? 'bg-emerald-500 text-white shadow-sm'
-                  : 'bg-[#1a212d] text-slate-300 hover:bg-slate-800'
+                  ? 'bg-teal-700 text-white shadow-sm'
+                  : 'bg-white text-stone-600 hover:bg-stone-100'
               }`}
             >
               {TIER_MULTIPLIER[t].label}
@@ -428,16 +428,16 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <Users className="h-4 w-4 text-emerald-400" />
-          <span className="text-xs font-medium text-slate-300">Peserta:</span>
-          <div className="flex items-center rounded-xl border border-slate-800 bg-[#1a212d] p-0.5">
+          <Users className="h-4 w-4 text-teal-700" />
+          <span className="text-xs font-medium text-stone-600">Peserta:</span>
+          <div className="flex items-center rounded-xl border border-stone-200 bg-white p-0.5">
             {[1, 2, 4].map((count) => (
               <button
                 key={count}
                 type="button"
                 onClick={() => setPax(count)}
                 className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  pax === count ? 'bg-emerald-500 text-white' : 'text-slate-400 hover:text-white'
+                  pax === count ? 'bg-teal-700 text-white' : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
                 {count} Org
@@ -449,56 +449,56 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
 
       {/* Top Overview Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        <div className="rounded-2xl border border-slate-800 bg-[#151b23] p-4 sm:p-5 shadow-md">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5 shadow-sm">
+          <div className="flex items-center justify-between text-xs font-semibold text-stone-500 uppercase tracking-wider">
             <span>Total Estimasi ({pax} Org)</span>
-            <DollarSign className="h-4 w-4 text-emerald-400" />
+            <DollarSign className="h-4 w-4 text-teal-700" />
           </div>
-          <div className="mt-2.5 text-xl sm:text-2xl font-bold text-white tracking-tight">
+          <div className="mt-2.5 text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
             {formatIdr(grandTotal)}
           </div>
-          <p className="mt-1 text-xs text-slate-400">
-            {pax > 1 ? `${formatIdr(perPersonTotal)} / orang · ` : ''}
+          <p className="mt-1 text-xs text-stone-500">
+            {pax > 1 ? `${formatIdr(perPersonTotal)} / orang Â· ` : ''}
             {effectiveDays} hari {effectiveNights} malam di {destination}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-[#151b23] p-4 sm:p-5 shadow-md">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5 shadow-sm">
+          <div className="flex items-center justify-between text-xs font-semibold text-stone-500 uppercase tracking-wider">
             <span>Biaya Harian (Di Lokasi)</span>
-            <PieChart className="h-4 w-4 text-emerald-400" />
+            <PieChart className="h-4 w-4 text-teal-700" />
           </div>
-          <div className="mt-2.5 text-xl sm:text-2xl font-bold text-emerald-400 tracking-tight">
+          <div className="mt-2.5 text-xl sm:text-2xl font-bold text-teal-700 tracking-tight">
             {formatIdr(Math.round((grandTotal - totalFlight) / effectiveDays))}
           </div>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-stone-500">
             Per hari di luar tiket PP (Rata-rata all-in: {formatIdr(dailyAverage)}/hr)
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-[#151b23] p-4 sm:p-5 shadow-md">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5 shadow-sm">
+          <div className="flex items-center justify-between text-xs font-semibold text-stone-500 uppercase tracking-wider">
             <span>Mode Rencana</span>
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-bold text-emerald-400">
+            <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-700">
               {tierBadge}
             </span>
           </div>
-          <div className="mt-2.5 text-lg sm:text-xl font-bold text-slate-200">{tierLabel}</div>
-          <p className="mt-1 text-xs text-slate-400">{tierDesc}</p>
+          <div className="mt-2.5 text-lg sm:text-xl font-bold text-stone-800">{tierLabel}</div>
+          <p className="mt-1 text-xs text-stone-500">{tierDesc}</p>
         </div>
       </div>
 
       {/* Detailed Category Cost Breakdown */}
-      <div className="rounded-2xl border border-slate-800 bg-[#151b23] p-4 sm:p-6 shadow-md">
+      <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-          <h3 className="text-base font-bold text-white">Rincian Detail Komponen Biaya</h3>
-          <span className="text-xs text-slate-400">
+          <h3 className="text-base font-bold text-stone-900">Rincian Detail Komponen Biaya</h3>
+          <span className="text-xs text-stone-500">
             Termasuk Tiket PP, Hotel {effectiveNights} malam, Makan 3x/hari, Sewa Motor & Wisata
           </span>
         </div>
 
         {/* Distribution Bar */}
-        <div className="h-3 w-full rounded-full overflow-hidden flex bg-slate-800 mb-6">
+        <div className="h-3 w-full rounded-full overflow-hidden flex bg-stone-100 mb-6">
           {categories.map((cat) => {
             const pct = Math.max(Math.round((cat.amount / grandTotal) * 100), 4)
             return (
@@ -512,7 +512,7 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
           })}
         </div>
 
-        <div className="space-y-4 divide-y divide-slate-800/80">
+        <div className="space-y-4 divide-y divide-stone-100">
           {categories.map((cat) => {
             const Icon = cat.icon
             const pct = Math.round((cat.amount / grandTotal) * 100)
@@ -521,28 +521,28 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     <div
-                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-800/80 border border-slate-700/60 ${cat.textColor}`}
+                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-stone-100 border border-stone-200 ${cat.textColor}`}
                     >
                       <Icon className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-white">{cat.name}</div>
-                      <div className="text-xs text-slate-400">{cat.detail}</div>
+                      <div className="text-sm font-semibold text-stone-900">{cat.name}</div>
+                      <div className="text-xs text-stone-500">{cat.detail}</div>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-sm sm:text-base font-bold text-slate-100">{formatIdr(cat.amount)}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">{pct}% dari total</div>
+                    <div className="text-sm sm:text-base font-bold text-stone-800">{formatIdr(cat.amount)}</div>
+                    <div className="text-[11px] text-stone-500 font-mono">{pct}% dari total</div>
                   </div>
                 </div>
 
                 {/* Granular Sub-items */}
-                <div className="ml-0 sm:ml-13 grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl bg-[#11161d] p-3 border border-slate-800/70">
+                <div className="ml-0 sm:ml-13 grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl bg-stone-50/60 p-3 border border-stone-200">
                   {cat.subItems.map((sub) => (
                     <div key={sub.label} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="text-slate-400">{sub.label}</span>
-                      <span className="font-semibold text-slate-200 text-right">{sub.value}</span>
+                      <span className="text-stone-500">{sub.label}</span>
+                      <span className="font-semibold text-stone-800 text-right">{sub.value}</span>
                     </div>
                   ))}
                 </div>
@@ -553,14 +553,14 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       </div>
 
       {/* Day-by-Day & Per-Activity Itemized Cost Table */}
-      <div className="rounded-2xl border border-slate-800 bg-[#151b23] p-4 sm:p-6 shadow-md space-y-4">
+      <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-emerald-400" />
+            <h3 className="text-base font-bold text-stone-900 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-teal-700" />
               Rincian Biaya Harian & Per Aktivitas ({effectiveDays} Hari)
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-stone-500 mt-0.5">
               Estimasi pengeluaran detail dari pagi hingga malam beserta sewa motor & penginapan
             </p>
           </div>
@@ -568,56 +568,56 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
 
         <div className="space-y-4">
           {dailyBreakdowns.map((d) => (
-            <div key={d.day} className="rounded-2xl border border-slate-800 bg-[#11161d] overflow-hidden">
+            <div key={d.day} className="rounded-2xl border border-stone-200 bg-stone-50/60 overflow-hidden">
               {/* Day Header */}
-              <div className="flex items-center justify-between bg-slate-800/50 px-4 py-2.5 border-b border-slate-800">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+              <div className="flex items-center justify-between bg-stone-100 px-4 py-2.5 border-b border-stone-200">
+                <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
                   Hari ke-{d.day}
                 </span>
-                <span className="text-xs font-bold text-white">
-                  Subtotal Hari {d.day}: <span className="text-emerald-400">{formatIdr(d.daySubtotal)}</span>
+                <span className="text-xs font-bold text-stone-900">
+                  Subtotal Hari {d.day}: <span className="text-teal-700">{formatIdr(d.daySubtotal)}</span>
                 </span>
               </div>
 
               {/* Fixed Daily Components Pill Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 border-b border-slate-800/60 bg-[#131922] text-[11px]">
-                <div className="rounded-lg bg-slate-800/40 px-2.5 py-1.5">
-                  <div className="text-slate-400">Makan 3x + Kopi</div>
-                  <div className="font-bold text-emerald-400">{formatIdr(d.dayMealCost)}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 border-b border-stone-100 bg-white text-[11px]">
+                <div className="rounded-lg bg-stone-100/70 px-2.5 py-1.5">
+                  <div className="text-stone-500">Makan 3x + Kopi</div>
+                  <div className="font-bold text-stone-800">{formatIdr(d.dayMealCost)}</div>
                 </div>
-                <div className="rounded-lg bg-slate-800/40 px-2.5 py-1.5">
-                  <div className="text-slate-400">Sewa Motor + BBM</div>
-                  <div className="font-bold text-amber-400">{formatIdr(d.dayMotorCost)}</div>
+                <div className="rounded-lg bg-stone-100/70 px-2.5 py-1.5">
+                  <div className="text-stone-500">Sewa Motor + BBM</div>
+                  <div className="font-bold text-stone-800">{formatIdr(d.dayMotorCost)}</div>
                 </div>
-                <div className="rounded-lg bg-slate-800/40 px-2.5 py-1.5">
-                  <div className="text-slate-400">Tiket & Aktivitas</div>
-                  <div className="font-bold text-rose-400">{formatIdr(d.dayTicketCost)}</div>
+                <div className="rounded-lg bg-stone-100/70 px-2.5 py-1.5">
+                  <div className="text-stone-500">Tiket & Aktivitas</div>
+                  <div className="font-bold text-stone-800">{formatIdr(d.dayTicketCost)}</div>
                 </div>
-                <div className="rounded-lg bg-slate-800/40 px-2.5 py-1.5">
-                  <div className="text-slate-400">{d.dayHotelCost > 0 ? `Hotel Malam ke-${d.day}` : 'Hari Kepulangan'}</div>
-                  <div className="font-bold text-indigo-400">
+                <div className="rounded-lg bg-stone-100/70 px-2.5 py-1.5">
+                  <div className="text-stone-500">{d.dayHotelCost > 0 ? `Hotel Malam ke-${d.day}` : 'Hari Kepulangan'}</div>
+                  <div className="font-bold text-stone-800">
                     {d.dayHotelCost > 0 ? formatIdr(d.dayHotelCost) : 'Check-out'}
                   </div>
                 </div>
               </div>
 
               {/* Per-Activity Item Rows */}
-              <div className="divide-y divide-slate-800/50 px-4 py-1">
+              <div className="divide-y divide-stone-100 px-4 py-1">
                 {d.activityRows.map((row, idx) => (
                   <div key={`${d.day}-${idx}`} className="py-2.5 flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-start gap-2.5 min-w-0">
-                      <span className="font-mono text-[11px] font-semibold text-emerald-400 shrink-0 mt-0.5">
+                      <span className="font-mono text-[11px] font-semibold text-teal-700 shrink-0 mt-0.5">
                         {row.time}
                       </span>
                       <div className="min-w-0">
-                        <div className="font-medium text-slate-200 truncate">{row.title}</div>
-                        <div className="text-[11px] text-slate-400">
-                          <span className="text-slate-300 font-medium">{row.typeLabel}</span> · {row.note}
+                        <div className="font-medium text-stone-800 truncate">{row.title}</div>
+                        <div className="text-[11px] text-stone-500">
+                          <span className="text-stone-600 font-medium">{row.typeLabel}</span> Â· {row.note}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right shrink-0 font-mono font-semibold text-slate-200">
-                      {row.totalCost > 0 ? formatIdr(row.totalCost) : <span className="text-slate-500 text-[11px]">Termasuk</span>}
+                    <div className="text-right shrink-0 font-mono font-semibold text-stone-800">
+                      {row.totalCost > 0 ? formatIdr(row.totalCost) : <span className="text-stone-400 text-[11px]">Termasuk</span>}
                     </div>
                   </div>
                 ))}
@@ -627,16 +627,16 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
         </div>
 
         {/* Practical Tips Box */}
-        <div className="flex items-start gap-2.5 rounded-xl bg-emerald-500/10 p-3.5 text-xs text-slate-300 border border-emerald-500/20">
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+        <div className="flex items-start gap-2.5 rounded-xl bg-teal-50 p-3.5 text-xs text-stone-600 border border-teal-100">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-teal-700 mt-0.5" />
           <div>
-            <strong className="text-emerald-300">Tips Sewa Motor & Kuliner di {destination}: </strong>
+            <strong className="text-teal-800">Tips Sewa Motor & Kuliner di {destination}: </strong>
             Lokasi sewa motor mudah ditemukan di <em>{pricing.rentalHint}</em> dengan syarat KTP & SIM C aktif. Untuk makan 3x sehari lebih hemat, kombinasikan sarapan di penginapan/warung pagi, makan siang di dekat spot wisata, dan makan malam di pusat kuliner malam.
           </div>
         </div>
 
-        <div className="flex items-start gap-2.5 rounded-xl bg-slate-800/40 p-3 text-xs text-slate-400 border border-slate-800">
-          <AlertCircle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+        <div className="flex items-start gap-2.5 rounded-xl bg-stone-100/70 p-3 text-xs text-stone-500 border border-stone-200">
+          <AlertCircle className="h-4 w-4 shrink-0 text-stone-500 mt-0.5" />
           <span>
             Perkiraan anggaran ini dihitung berdasarkan rata-rata biaya riil di {destination} dan dapat disesuaikan melalui pilihan <strong>Gaya Budget</strong> serta <strong>Jumlah Peserta</strong> di atas.
           </span>
