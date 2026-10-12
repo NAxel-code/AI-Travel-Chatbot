@@ -163,12 +163,12 @@ export function generateTravelReportHtml(input: TravelReportInput): string {
               .map(
                 (item) => `
               <tr>
-                <td class="time-cell">${escapeHtml(item.start_time || '09:00')}</td>
+                <td class="time-cell">${escapeHtml(item.time_slot || '09:00')}</td>
                 <td>
-                  <div class="place-title">${escapeHtml(item.place_name)}</div>
+                  <div class="place-title">${escapeHtml(item.title)}</div>
                   ${
-                    item.address || item.location
-                      ? `<div class="place-sub">📍 ${escapeHtml(item.address || item.location || '')}</div>`
+                    item.address || item.location_name
+                      ? `<div class="place-sub">📍 ${escapeHtml(item.address || item.location_name || '')}</div>`
                       : ''
                   }
                   ${item.description ? `<div class="place-desc">${escapeHtml(item.description)}</div>` : ''}
