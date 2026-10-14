@@ -1,27 +1,37 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, ChevronDown, Download, CalendarDays, Route, Settings2, Plus, Loader2, UserRound } from 'lucide-react'
+import { Search, ChevronDown, Download, CalendarDays, Route, Settings2, Plus, Loader2, UserRound, LogOut, LogIn, Luggage } from 'lucide-react'
+
+type NavbarUser = { email: string; display_name: string }
 
 type NavbarProps = {
   destination?: string
   hasItinerary: boolean
+  user?: NavbarUser | null
   onSearch?: (query: string) => void
   onExportPdf?: () => void
   onExportCalendar?: () => void
   onTogglePreferences?: () => void
   onNewTrip?: () => void
   onNewSession?: () => void
+  onOpenAuth?: () => void
+  onLogout?: () => void
+  onOpenTrips?: () => void
   isStartingSession?: boolean
 }
 
 export function Navbar({
   destination,
   hasItinerary,
+  user,
   onSearch,
   onExportPdf,
   onExportCalendar,
   onTogglePreferences,
   onNewTrip,
   onNewSession,
+  onOpenAuth,
+  onLogout,
+  onOpenTrips,
   isStartingSession,
 }: NavbarProps) {
   const [searchVal, setSearchVal] = useState('')
@@ -114,7 +124,27 @@ export function Navbar({
           </button>
         )}
 
-        {/* Guest menu */}
+        {/* Compact account button for mobile (full menu is sm+) */}
+        <button
+          type="button"
+          onClick={() => (user ? onOpenTrips?.() : onOpenAuth?.())}
+          className="grid h-11 w-11 place-items-center rounded-full border border-stone-200 bg-white sm:hidden"
+          aria-label={user ? 'Perjalanan saya' : 'Masuk atau daftar'}
+        >
+          <span
+            className={`grid h-8 w-8 place-items-center rounded-full ${
+              user ? 'bg-teal-700 text-white' : 'bg-amber-100 text-amber-800'
+            }`}
+          >
+            {user ? (
+              <span className="text-sm font-bold uppercase">{user.display_name.charAt(0) || user.email.charAt(0)}</span>
+            ) : (
+              <UserRound className="h-4 w-4" />
+            )}
+          </span>
+        </button>
+
+        {/* Account menu */}
         <div ref={menuRef} className="relative hidden sm:block">
           <button
             type="button"
@@ -123,8 +153,16 @@ export function Navbar({
             aria-haspopup="menu"
             className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-stone-200 bg-white pl-1.5 pr-2.5 transition hover:bg-stone-50"
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-amber-100 text-amber-800">
-              <UserRound className="h-4 w-4" />
+            <span
+              className={`grid h-8 w-8 place-items-center rounded-full ${
+                user ? 'bg-teal-700 text-white' : 'bg-amber-100 text-amber-800'
+              }`}
+            >
+              {user ? (
+                <span className="text-sm font-bold uppercase">{user.display_name.charAt(0) || user.email.charAt(0)}</span>
+              ) : (
+                <UserRound className="h-4 w-4" />
+              )}
             </span>
             <ChevronDown className={`h-3.5 w-3.5 text-stone-500 transition ${showMenu ? 'rotate-180' : ''}`} />
           </button>
@@ -132,12 +170,36 @@ export function Navbar({
           {showMenu && (
             <div
               role="menu"
-              className="animate-rise absolute right-0 mt-2 w-56 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl shadow-stone-900/10"
+              className="animate-rise absolute right-0 mt-2 w-60 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl shadow-stone-900/10"
             >
               <div className="px-3 py-2 border-b border-stone-100">
-                <p className="text-sm font-semibold text-stone-900">Tamu</p>
-                <p className="text-xs text-stone-500">Sesi anonim di perangkat ini</p>
+                {user ? (
+                  <>
+                    <p className="truncate text-sm font-semibold text-stone-900">{user.display_name}</p>
+                    <p className="truncate text-xs text-stone-500">{user.email}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-stone-900">Tamu</p>
+                    <p className="text-xs text-stone-500">Sesi anonim di perangkat ini</p>
+                  </>
+                )}
               </div>
+
+              {user && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMenu(false)
+                    onOpenTrips?.()
+                  }}
+                  className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+                >
+                  <Luggage className="h-4 w-4 text-stone-500" /> Perjalanan saya
+                </button>
+              )}
+
               <button
                 type="button"
                 role="menuitem"
@@ -145,10 +207,36 @@ export function Navbar({
                   setShowMenu(false)
                   onTogglePreferences?.()
                 }}
-                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
               >
                 <Settings2 className="h-4 w-4 text-stone-500" /> Kelola preferensi
               </button>
+
+              {user ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMenu(false)
+                    onLogout?.()
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                >
+                  <LogOut className="h-4 w-4" /> Keluar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMenu(false)
+                    onOpenAuth?.()
+                  }}
+                  className="mt-1 flex w-full items-center gap-2 rounded-xl bg-teal-700 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800"
+                >
+                  <LogIn className="h-4 w-4" /> Masuk / Daftar
+                </button>
+              )}
             </div>
           )}
         </div>

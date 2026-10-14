@@ -3,11 +3,30 @@ DROP TABLE IF EXISTS itinerary_items;
 DROP TABLE IF EXISTS itineraries;
 DROP TABLE IF EXISTS user_preferences;
 DROP TABLE IF EXISTS rate_limits;
+DROP TABLE IF EXISTS auth_tokens;
 DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE auth_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 CREATE TABLE sessions (
   id TEXT PRIMARY KEY,
   access_token_hash TEXT,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at INTEGER NOT NULL
 );
 
@@ -20,6 +39,7 @@ CREATE TABLE rate_limits (
 CREATE TABLE user_preferences (
   id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   preference_category TEXT NOT NULL,
   preference_value TEXT NOT NULL,
   updated_at INTEGER NOT NULL,
@@ -55,5 +75,9 @@ CREATE TABLE itinerary_items (
 );
 
 CREATE INDEX idx_rate_limits_expiry ON rate_limits(expires_at);
+CREATE INDEX idx_auth_tokens_user ON auth_tokens(user_id);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+CREATE UNIQUE INDEX idx_user_preferences_user_category
+  ON user_preferences(user_id, preference_category) WHERE user_id IS NOT NULL;
 CREATE INDEX idx_itineraries_session_created ON itineraries(session_id, created_at DESC);
 CREATE INDEX idx_itinerary_items_itinerary_day ON itinerary_items(itinerary_id, day_number, time_slot);

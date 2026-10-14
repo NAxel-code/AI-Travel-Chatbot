@@ -1,4 +1,5 @@
 import type { Bindings, ItineraryItemInput } from './types'
+import { savePreference } from './session'
 import type { GroundedPlace } from './travel-data'
 import {
   parseBuildItinerary,
@@ -80,14 +81,7 @@ export async function executeAgentTool(
     if (name === 'save_user_preference') {
       const args = parsePreference(rawArgs)
       assertActive(state)
-      await env.DB.prepare(`
-        INSERT INTO user_preferences (
-          id, session_id, preference_category, preference_value, updated_at
-        ) VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(session_id, preference_category) DO UPDATE SET
-          preference_value = excluded.preference_value,
-          updated_at = excluded.updated_at
-      `).bind(crypto.randomUUID(), sessionId, args.category, args.value, Date.now()).run()
+      await savePreference(env.DB, sessionId, args.category, args.value)
       return {
         response: { status: 'success', message: 'Preference saved' },
         notification: `Preferensi disimpan: ${args.category.replaceAll('_', ' ')} = ${args.value}`,

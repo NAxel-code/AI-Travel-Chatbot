@@ -3,8 +3,8 @@ import { FunctionCallingConfigMode, GoogleGenAI } from '@google/genai'
 import { executeAgentTool, type AgentToolState } from './agent-tools'
 import { functionDeclarations, getSystemPrompt } from './ai'
 import { encodeSse, type SseEvent } from './sse'
-import { consumeRateLimit, isAuthorized } from './session'
-import type { AppEnv, ChatMessage, ItineraryItemInput, Preference } from './types'
+import { consumeRateLimit, isAuthorized, loadPreferences } from './session'
+import type { AppEnv, ChatMessage, ItineraryItemInput } from './types'
 import { parseChatRequest, ValidationError } from './validation'
 
 const MODEL_CANDIDATES = ['gemini-3.5-flash-lite', 'gemini-3.8-flash']
@@ -151,18 +151,15 @@ export async function chatHandler(c: Context<AppEnv>) {
       return c.json({ error: 'Terlalu banyak pesan. Tunggu sebentar lalu coba lagi.' }, 429)
     }
 
-    const [preferencesResult, historyRaw, currentItinerary] = await Promise.all([
-      c.env.DB.prepare(`
-        SELECT preference_category, preference_value
-        FROM user_preferences WHERE session_id = ? ORDER BY preference_category
-      `).bind(sessionId).all<Preference>(),
+    const [preferences, historyRaw, currentItinerary] = await Promise.all([
+      loadPreferences(c.env.DB, sessionId),
       c.env.CHAT_HISTORY.get(`session:${sessionId}`),
       getCurrentItinerary(c.env, sessionId),
     ])
     const history = parseHistory(historyRaw)
     history.push({ role: 'user', content: message })
     const contents = history.map((entry) => ({ role: entry.role, parts: [{ text: entry.content }] }))
-    const systemPrompt = getSystemPrompt(preferencesResult.results || [], currentItinerary)
+    const systemPrompt = getSystemPrompt(preferences, currentItinerary)
     const ai = new GoogleGenAI({ apiKey: c.env.GEMINI_API_KEY })
     const requestSignal = c.req.raw.signal
     const deadline = Date.now() + CHAT_DEADLINE_MS

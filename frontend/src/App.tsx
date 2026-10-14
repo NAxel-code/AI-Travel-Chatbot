@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import {
   Sparkles,
@@ -22,12 +22,15 @@ import {
   Waves,
   Mountain,
   UtensilsCrossed,
+  FileText,
+  Download,
 } from 'lucide-react'
 import { Markdown } from './components/Markdown'
 import { createIcs } from './lib/calendar'
 import { openOrDownloadTravelReport } from './lib/travelReport'
 import { readSse } from './lib/sse'
 import { Navbar } from './components/Navbar'
+import { AuthModal } from './components/AuthModal'
 import { DayCard } from './components/DayCard'
 import { TravelMap } from './components/TravelMap'
 import { ExpensesView } from './components/ExpensesView'
@@ -48,6 +51,7 @@ function resolveApiBase(): string {
 const API_BASE = resolveApiBase()
 const SESSION_STORAGE_KEY = 'travel_session_credentials'
 const LEGACY_SESSION_KEY = 'travel_session_id'
+const AUTH_TOKEN_KEY = 'travel_auth_token'
 const INITIAL_GREETING =
   'Halo! Mau liburan ke mana kali ini? Sebutkan destinasi (misal: Bali, Bandung, Labuan Bajo), durasi hari, dan gaya traveling favoritmu. Rute akan menyusun itinerary lengkap beserta peta dan perkiraan anggarannya!'
 
@@ -81,6 +85,14 @@ const WORKSPACE_TABS = [
 
 type Message = { role: 'user' | 'model'; content: string }
 type Credentials = { sessionId: string; token: string }
+type User = { id: string; email: string; display_name: string }
+type TripSummary = {
+  session_id: string
+  destination: string
+  start_date: string
+  end_date: string
+  created_at: number
+}
 type Preference = { preference_category: string; preference_value: string }
 type Itinerary = {
   id: string
@@ -134,10 +146,31 @@ function storedCredentials(): Credentials | null {
   }
 }
 
+function storedAuthToken(): string | null {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY) || null
+  } catch {
+    return null
+  }
+}
+
+function persistAuthToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem(AUTH_TOKEN_KEY, token)
+    else localStorage.removeItem(AUTH_TOKEN_KEY)
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 async function apiRequest<T>(path: string, credentials?: Credentials, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
   if (init.body) headers.set('Content-Type', 'application/json')
-  if (credentials) headers.set('X-Session-Token', credentials.token)
+  if (credentials && credentials.token) headers.set('X-Session-Token', credentials.token)
+  // A signed-in account can access its own sessions with the auth token, so always
+  // attach it when present. The backend accepts either token.
+  const authToken = storedAuthToken()
+  if (authToken) headers.set('X-Auth-Token', authToken)
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers })
   const payload = (await response.json().catch(() => null)) as ({ error?: string } & T) | null
   if (!response.ok) throw new ApiError(response.status, payload?.error || `Server mengembalikan status ${response.status}.`)
@@ -199,6 +232,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('chat')
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<ItineraryItem | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [showAuth, setShowAuth] = useState(false)
+  const [trips, setTrips] = useState<TripSummary[] | null>(null)
+  const [showTrips, setShowTrips] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -251,6 +288,16 @@ export default function App() {
         )
         setItinerary(itineraryResult.data ?? cached.itinerary ?? null)
         setPreferences(preferenceResult.data.length ? preferenceResult.data : cached.preferences ?? [])
+
+        // Restore the signed-in account if a valid auth token is still stored.
+        if (storedAuthToken()) {
+          try {
+            const me = await apiRequest<ApiEnvelope<{ user: User }>>('/auth/me', session)
+            if (active) setUser(me.data.user)
+          } catch (error) {
+            if (error instanceof ApiError && error.status === 401) persistAuthToken(null)
+          }
+        }
       } catch (error) {
         if (active)
           setPageError(
@@ -318,13 +365,17 @@ export default function App() {
         setCredentials(activeSession)
       }
 
+      const chatHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (activeSession.token) chatHeaders['X-Session-Token'] = activeSession.token
+      const authToken = storedAuthToken()
+      if (authToken) chatHeaders['X-Auth-Token'] = authToken
+
       const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-Token': activeSession.token,
-        },
+        headers: chatHeaders,
         body: JSON.stringify({
           session_id: activeSession.sessionId,
           message: cleanMessage,
@@ -482,6 +533,92 @@ export default function App() {
     }
   }
 
+  // Reload session-scoped data after an auth change so account preferences/itinerary show up.
+  async function reloadSessionData(session: Credentials) {
+    try {
+      const [historyResult, itineraryResult, preferenceResult] = await Promise.all([
+        apiRequest<ApiEnvelope<Message[]>>(`/history/${session.sessionId}`, session),
+        apiRequest<ApiEnvelope<Itinerary | null>>(`/itinerary/${session.sessionId}`, session),
+        apiRequest<ApiEnvelope<Preference[]>>(`/preferences/${session.sessionId}`, session),
+      ])
+      if (historyResult.data.length) setMessages(historyResult.data)
+      if (itineraryResult.data) setItinerary(itineraryResult.data)
+      setPreferences(preferenceResult.data)
+    } catch {
+      // Non-fatal: the UI keeps its current state if a refresh fails.
+    }
+  }
+
+  async function submitAuth(mode: 'login' | 'register', email: string, password: string): Promise<string | null> {
+    if (!credentials) return 'Sesi belum siap. Muat ulang halaman lalu coba lagi.'
+    try {
+      const result = await apiRequest<ApiEnvelope<{ user: User; auth_token: string }>>(
+        `/auth/${mode}`,
+        credentials,
+        { method: 'POST', body: JSON.stringify({ session_id: credentials.sessionId, email, password }) },
+      )
+      persistAuthToken(result.data.auth_token)
+      setUser(result.data.user)
+      setShowAuth(false)
+      setTrips(null)
+      await reloadSessionData(credentials)
+      addNotice(mode === 'register' ? 'Akun dibuat. Preferensimu kini tersimpan di akun.' : `Selamat datang kembali, ${result.data.user.display_name}.`)
+      return null
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Terjadi kesalahan. Coba lagi.'
+    }
+  }
+
+  async function logout() {
+    try {
+      await apiRequest('/auth/logout', credentials ?? undefined, { method: 'POST' })
+    } catch {
+      // Ignore: clear local auth regardless of the network result.
+    }
+    persistAuthToken(null)
+    setUser(null)
+    setTrips(null)
+    setShowTrips(false)
+    addNotice('Kamu telah keluar. Sesi ini kembali anonim.')
+  }
+
+  async function loadTrips() {
+    setShowTrips(true)
+    try {
+      const result = await apiRequest<ApiEnvelope<TripSummary[]>>('/trips', credentials ?? undefined)
+      setTrips(result.data)
+    } catch (error) {
+      setTrips([])
+      setPageError(error instanceof Error ? error.message : 'Gagal memuat perjalanan.')
+    }
+  }
+
+  // Switch to one of the account's saved trips. Access is authorized by the auth token,
+  // so the per-session token can stay empty.
+  async function openTrip(sessionId: string) {
+    if (!user) return
+    const session: Credentials = { sessionId, token: '' }
+    setShowTrips(false)
+    setSelectedDay(null)
+    setSelectedPlace(null)
+    setCredentials(session)
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session))
+    localStorage.setItem(LEGACY_SESSION_KEY, sessionId)
+    try {
+      const [historyResult, itineraryResult, preferenceResult] = await Promise.all([
+        apiRequest<ApiEnvelope<Message[]>>(`/history/${sessionId}`, session),
+        apiRequest<ApiEnvelope<Itinerary | null>>(`/itinerary/${sessionId}`, session),
+        apiRequest<ApiEnvelope<Preference[]>>(`/preferences/${sessionId}`, session),
+      ])
+      setMessages(historyResult.data.length ? historyResult.data : [{ role: 'model', content: INITIAL_GREETING }])
+      setItinerary(itineraryResult.data ?? null)
+      setPreferences(preferenceResult.data)
+      setActiveTab('chat')
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Perjalanan tidak dapat dibuka.')
+    }
+  }
+
   function exportCalendar() {
     if (!itinerary) return
     try {
@@ -592,6 +729,7 @@ export default function App() {
       <Navbar
         destination={itinerary?.destination || (hasAskedAi ? inferredDestination : undefined)}
         hasItinerary={Boolean(itinerary) || hasAskedAi}
+        user={user}
         onSearch={(query) => {
           setActiveTab('chat')
           void sendMessage(`Cari rekomendasi tempat terkait: ${query}`)
@@ -604,6 +742,9 @@ export default function App() {
         }}
         onNewTrip={startNewTrip}
         onNewSession={startNewSession}
+        onOpenAuth={() => setShowAuth(true)}
+        onLogout={() => void logout()}
+        onOpenTrips={() => void loadTrips()}
         isStartingSession={isStartingSession}
       />
 
@@ -614,33 +755,58 @@ export default function App() {
             activeTab === 'chat' ? 'flex w-full' : 'hidden'
           } lg:flex lg:w-[400px] lg:shrink-0 xl:w-[440px]`}
         >
-          <header className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <div className="relative grid h-10 w-10 place-items-center rounded-2xl bg-teal-50 text-teal-700">
-                <Sparkles className="h-5 w-5" />
-                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+          <header className="flex items-center justify-between border-b border-stone-100 px-3.5 sm:px-4 py-3 gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              {/* Mobile Back to Menu / Jadwal button */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('overview')}
+                className="lg:hidden flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-100 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-200 active:scale-95 transition shrink-0"
+                aria-label="Kembali ke Menu / Jadwal"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Menu</span>
+              </button>
+
+              <div className="relative grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-teal-50 text-teal-700">
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full border-2 border-white bg-emerald-500" />
               </div>
-              <div>
-                <h2 className="text-sm font-bold leading-none text-stone-900">Asisten Rute</h2>
-                <p className="mt-1 text-xs text-stone-500">
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold leading-none text-stone-900 truncate">Asisten Rute</h2>
+                <p className="mt-1 text-xs text-stone-500 truncate">
                   {isLoading ? 'Sedang menyusun…' : 'Siap membantu rencanamu'}
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowPreferences((v) => !v)}
-              aria-expanded={showPreferences}
-              className={`flex min-h-[40px] items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
-                showPreferences
-                  ? 'bg-teal-700 text-white'
-                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-              }`}
-              title="Kelola preferensi yang diingat"
-            >
-              <Database className="h-3.5 w-3.5" />
-              Memori{preferences.length > 0 ? ` · ${preferences.length}` : ''}
-            </button>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {hasAskedAi && (
+                <button
+                  type="button"
+                  onClick={handleExportReport}
+                  className="lg:hidden flex items-center gap-1 rounded-xl bg-teal-50 border border-teal-600/30 px-2.5 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 active:scale-95 transition"
+                  title="Unduh Dokumen Laporan Perjalanan"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Laporan</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowPreferences((v) => !v)}
+                aria-expanded={showPreferences}
+                className={`flex min-h-[36px] sm:min-h-[40px] items-center gap-1.5 rounded-full px-2.5 sm:px-3 text-xs font-semibold transition ${
+                  showPreferences
+                    ? 'bg-teal-700 text-white'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+                title="Kelola preferensi yang diingat"
+              >
+                <Database className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Memori</span>{preferences.length > 0 ? ` · ${preferences.length}` : ''}
+              </button>
+            </div>
           </header>
 
           {showPreferences && (
@@ -771,24 +937,69 @@ export default function App() {
               </div>
             )}
 
-            {/* Mobile-only shortcut to the workspace tabs */}
+            {/* Petunjuk Laporan & Dokumen Perjalanan setelah AI selesai menyusun itinerary */}
             {hasAskedAi && !isLoading && (
-              <div className="lg:hidden rounded-2xl border border-stone-200 bg-stone-50 p-3">
-                <p className="mb-2 text-xs font-semibold text-stone-600">
-                  {inferredDestination} · {inferredDayCount} hari
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {WORKSPACE_TABS.map(([tab, label, Icon]) => (
+              <div className="animate-rise rounded-2xl border border-teal-600/30 bg-teal-50/70 p-3.5 shadow-sm space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-teal-700 text-white shadow-sm">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-800 uppercase tracking-wide">
+                        <CheckCircle2 className="h-3 w-3" /> Selesai
+                      </span>
+                      <h3 className="text-xs font-bold text-stone-900 truncate">
+                        Laporan {inferredDestination} ({inferredDayCount} Hari) Siap!
+                      </h3>
+                    </div>
+                    <p className="mt-1 text-xs text-stone-600 leading-relaxed">
+                      Dokumen perjalananmu sudah siap. Ketuk tombol di bawah untuk mengunduh laporan PDF resmi, atau eksplorasi jadwal, peta rute, dan rincian biaya:
+                    </p>
+                  </div>
+                </div>
+
+                {/* Primary Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportReport}
+                    className="flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-teal-800 active:scale-[0.98]"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Unduh / Cetak Laporan (PDF)</span>
+                  </button>
+                  {itinerary && (
                     <button
-                      key={tab}
                       type="button"
-                      onClick={() => setActiveTab(tab)}
-                      className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white text-xs font-semibold text-stone-700 transition active:scale-[0.97]"
+                      onClick={exportCalendar}
+                      className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
+                      title="Simpan jadwal ke kalender HP (.ics)"
                     >
-                      <Icon className="h-4 w-4 text-teal-700" />
-                      {label}
+                      <Calendar className="h-4 w-4 text-teal-700" />
+                      <span>Kalender (.ics)</span>
                     </button>
-                  ))}
+                  )}
+                </div>
+
+                {/* Secondary Navigation to Workspace Tabs (Mobile & Quick-switch) */}
+                <div className="pt-2 border-t border-teal-600/15">
+                  <p className="mb-2 text-[11px] font-semibold text-stone-500">
+                    Buka menu interaktif di aplikasi:
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {WORKSPACE_TABS.map(([tab, label, Icon]) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setActiveTab(tab)}
+                        className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.97]"
+                      >
+                        <Icon className="h-3.5 w-3.5 text-teal-700" />
+                        <span>{label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1105,6 +1316,85 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onSubmit={submitAuth} />}
+
+      {showTrips && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Perjalanan saya"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowTrips(false)
+          }}
+        >
+          <div className="animate-rise flex max-h-[80dvh] w-full max-w-lg flex-col rounded-t-3xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/20 sm:rounded-3xl">
+            <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
+              <div>
+                <h2 className="font-display text-xl font-bold text-stone-900">Perjalanan saya</h2>
+                <p className="text-xs text-stone-500">Itinerary tersimpan di akunmu, terbaru di atas.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTrips(false)}
+                className="grid h-9 w-9 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+                aria-label="Tutup"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto p-4">
+              {trips === null ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-sm text-stone-500">
+                  <Loader2 className="h-5 w-5 animate-spin text-teal-700" /> Memuat perjalanan…
+                </div>
+              ) : trips.length === 0 ? (
+                <div className="grid place-items-center gap-3 py-10 text-center">
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-50 text-amber-700">
+                    <Compass className="h-6 w-6" />
+                  </span>
+                  <p className="max-w-xs text-sm text-stone-600">
+                    Belum ada perjalanan tersimpan. Buat itinerary lewat chat, dan akan muncul di sini.
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {trips.map((trip) => (
+                    <li key={trip.session_id}>
+                      <button
+                        type="button"
+                        onClick={() => void openTrip(trip.session_id)}
+                        className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-teal-600/40 hover:shadow-md hover:shadow-stone-900/5 ${
+                          credentials?.sessionId === trip.session_id
+                            ? 'border-teal-700 bg-teal-50/60'
+                            : 'border-stone-200 bg-white'
+                        }`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-display text-base font-bold text-stone-900">
+                            {trip.destination}
+                          </span>
+                          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-stone-500">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {formatRangeDates(trip.start_date, trip.end_date)}
+                          </span>
+                        </span>
+                        {credentials?.sessionId === trip.session_id && (
+                          <span className="shrink-0 rounded-full bg-teal-700 px-2.5 py-1 text-[11px] font-semibold text-white">
+                            Aktif
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

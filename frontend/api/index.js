@@ -44,6 +44,9 @@ function loadStore() {
           history: parsed.history || {},
           cache: parsed.cache || {},
           rateLimits: parsed.rateLimits || {},
+          users: parsed.users || {},
+          authTokens: parsed.authTokens || {},
+          sessionOwners: parsed.sessionOwners || {},
         }
         return memoryStore
       }
@@ -58,6 +61,9 @@ function loadStore() {
     history: {},
     cache: {},
     rateLimits: {},
+    users: {},
+    authTokens: {},
+    sessionOwners: {},
   }
   return memoryStore
 }
@@ -106,6 +112,48 @@ function verifyToken(sessionId, token) {
     return true
   }
   return false
+}
+
+const AUTH_TOKEN_HEADER = 'x-auth-token'
+const AUTH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex')
+  const hash = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256').toString('hex')
+  return `pbkdf2-sha256$100000$${salt}$${hash}`
+}
+
+function verifyPassword(password, stored) {
+  if (!stored || typeof stored !== 'string') return false
+  const parts = stored.split('$')
+  if (parts.length !== 4) return false
+  const [, iterStr, salt, expectedHash] = parts
+  const iterations = Number(iterStr)
+  if (!iterations || iterations < 1) return false
+  const actualHash = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256').toString('hex')
+  try {
+    return crypto.timingSafeEqual(Buffer.from(actualHash, 'hex'), Buffer.from(expectedHash, 'hex'))
+  } catch {
+    return false
+  }
+}
+
+function getAuthUser(c) {
+  const token = c.req.header(AUTH_TOKEN_HEADER)
+  if (!token || typeof token !== 'string') return null
+  const store = loadStore()
+  const tokenEntry = store.authTokens[token]
+  if (!tokenEntry || tokenEntry.expiresAt < Date.now()) return null
+  return store.users[tokenEntry.userId] || null
+}
+
+function isSessionAuthorized(c, sessionId) {
+  const sessionToken = c.req.header(TOKEN_HEADER)
+  if (sessionToken && verifyToken(sessionId, sessionToken)) return true
+  const user = getAuthUser(c)
+  if (!user) return false
+  const store = loadStore()
+  return store.sessionOwners[sessionId] === user.id
 }
 
 function consumeRateLimit(key, limit, windowSeconds) {
@@ -839,7 +887,7 @@ app.use(
   cors({
     origin: (origin) => origin || '*',
     allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'X-Session-Token'],
+    allowHeaders: ['Content-Type', 'X-Session-Token', 'X-Auth-Token'],
     maxAge: 86400,
   }),
 )
@@ -872,10 +920,123 @@ app.post('/api/session', async (c) => {
   return c.json({ data: { session_id: sessionId, token } }, 201)
 })
 
+app.post('/api/auth/register', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const sessionId = validateSessionId(body.session_id)
+    if (!verifyToken(sessionId, c.req.header(TOKEN_HEADER))) return c.json({ error: 'Sesi tidak valid.' }, 401)
+    const email = requiredString(body.email, 'email', 200).toLowerCase().trim()
+    const password = body.password
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+      return c.json({ error: 'Password harus 8-128 karakter.' }, 400)
+    }
+    const store = loadStore()
+    const existing = Object.values(store.users || {}).find((u) => u.email === email)
+    if (existing) return c.json({ error: 'Email sudah terdaftar. Silakan masuk.' }, 409)
+
+    const userId = crypto.randomUUID()
+    const displayName = body.display_name?.trim() || email.split('@')[0]
+    const user = {
+      id: userId,
+      email,
+      display_name: displayName,
+      password_hash: hashPassword(password),
+      created_at: Date.now(),
+    }
+    store.users[userId] = user
+    store.sessionOwners[sessionId] = userId
+
+    const authToken = `${crypto.randomUUID()}${crypto.randomUUID().replaceAll('-', '')}`
+    store.authTokens[authToken] = {
+      userId,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + AUTH_TOKEN_TTL_MS,
+    }
+    saveStore()
+    return c.json({ data: { user: { id: userId, email, display_name: displayName }, auth_token: authToken } }, 201)
+  } catch (error) {
+    if (error instanceof ValidationError) return c.json({ error: error.message }, 400)
+    return c.json({ error: 'Pendaftaran gagal.' }, 500)
+  }
+})
+
+app.post('/api/auth/login', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const sessionId = validateSessionId(body.session_id)
+    if (!verifyToken(sessionId, c.req.header(TOKEN_HEADER))) return c.json({ error: 'Sesi tidak valid.' }, 401)
+    const email = requiredString(body.email, 'email', 200).toLowerCase().trim()
+    const password = body.password
+    if (typeof password !== 'string' || !password || password.length > 128) {
+      return c.json({ error: 'Password wajib diisi.' }, 400)
+    }
+    const store = loadStore()
+    const user = Object.values(store.users || {}).find((u) => u.email === email)
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      return c.json({ error: 'Email atau password salah.' }, 401)
+    }
+
+    store.sessionOwners[sessionId] = user.id
+    const authToken = `${crypto.randomUUID()}${crypto.randomUUID().replaceAll('-', '')}`
+    store.authTokens[authToken] = {
+      userId: user.id,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + AUTH_TOKEN_TTL_MS,
+    }
+    saveStore()
+    return c.json({ data: { user: { id: user.id, email: user.email, display_name: user.display_name }, auth_token: authToken } })
+  } catch (error) {
+    if (error instanceof ValidationError) return c.json({ error: error.message }, 400)
+    return c.json({ error: 'Login gagal.' }, 500)
+  }
+})
+
+app.post('/api/auth/logout', (c) => {
+  const token = c.req.header(AUTH_TOKEN_HEADER)
+  if (token) {
+    const store = loadStore()
+    delete store.authTokens[token]
+    saveStore()
+  }
+  return c.json({ success: true })
+})
+
+app.get('/api/auth/me', (c) => {
+  const user = getAuthUser(c)
+  if (!user) return c.json({ error: 'Belum masuk.' }, 401)
+  return c.json({ data: { user: { id: user.id, email: user.email, display_name: user.display_name } } })
+})
+
+app.get('/api/trips', (c) => {
+  const user = getAuthUser(c)
+  if (!user) return c.json({ error: 'Belum masuk.' }, 401)
+  const store = loadStore()
+  const userSessions = Object.entries(store.sessionOwners || {})
+    .filter(([, uid]) => uid === user.id)
+    .map(([sid]) => sid)
+
+  const trips = userSessions
+    .map((sid) => {
+      const it = store.itineraries[sid]
+      if (!it) return null
+      return {
+        session_id: sid,
+        destination: it.destination,
+        start_date: it.start_date,
+        end_date: it.end_date,
+        created_at: it.created_at || Date.now(),
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.created_at - a.created_at)
+
+  return c.json({ data: trips })
+})
+
 app.get('/api/history/:session_id', (c) => {
   try {
     const sessionId = validateSessionId(c.req.param('session_id'))
-    if (!verifyToken(sessionId, c.req.header(TOKEN_HEADER))) return c.json({ error: 'Sesi tidak valid.' }, 401)
+    if (!isSessionAuthorized(c, sessionId)) return c.json({ error: 'Sesi tidak valid.' }, 401)
     const store = loadStore()
     return c.json({ data: (store.history[sessionId] || []).slice(-20) })
   } catch (error) {
@@ -887,7 +1048,7 @@ app.get('/api/history/:session_id', (c) => {
 app.get('/api/preferences/:session_id', (c) => {
   try {
     const sessionId = validateSessionId(c.req.param('session_id'))
-    if (!verifyToken(sessionId, c.req.header(TOKEN_HEADER))) return c.json({ error: 'Sesi tidak valid.' }, 401)
+    if (!isSessionAuthorized(c, sessionId)) return c.json({ error: 'Sesi tidak valid.' }, 401)
     const store = loadStore()
     return c.json({ data: store.preferences[sessionId] || [] })
   } catch (error) {
@@ -899,7 +1060,7 @@ app.get('/api/preferences/:session_id', (c) => {
 app.delete('/api/preferences/:session_id/:category', (c) => {
   try {
     const sessionId = validateSessionId(c.req.param('session_id'))
-    if (!verifyToken(sessionId, c.req.header(TOKEN_HEADER))) return c.json({ error: 'Sesi tidak valid.' }, 401)
+    if (!isSessionAuthorized(c, sessionId)) return c.json({ error: 'Sesi tidak valid.' }, 401)
     const category = c.req.param('category')
     if (!category || category.length > 60 || !/^[a-z0-9_-]+$/i.test(category)) {
       return c.json({ error: 'Kategori preferensi tidak valid.' }, 400)
@@ -918,7 +1079,7 @@ app.delete('/api/preferences/:session_id/:category', (c) => {
 app.get('/api/itinerary/:session_id', (c) => {
   try {
     const sessionId = validateSessionId(c.req.param('session_id'))
-    if (!verifyToken(sessionId, c.req.header(TOKEN_HEADER))) return c.json({ error: 'Sesi tidak valid.' }, 401)
+    if (!isSessionAuthorized(c, sessionId)) return c.json({ error: 'Sesi tidak valid.' }, 401)
     const store = loadStore()
     return c.json({ data: store.itineraries[sessionId] || null })
   } catch (error) {
@@ -933,7 +1094,7 @@ app.post('/api/chat', async (c) => {
       throw new ValidationError('Request JSON tidak valid.')
     })
     const { sessionId, message, clientState } = parseChatRequest(rawBody)
-    if (!verifyToken(sessionId, c.req.header(TOKEN_HEADER))) return c.json({ error: 'Sesi tidak valid.' }, 401)
+    if (!isSessionAuthorized(c, sessionId)) return c.json({ error: 'Sesi tidak valid.' }, 401)
 
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey || apiKey.startsWith('PASTE_')) {

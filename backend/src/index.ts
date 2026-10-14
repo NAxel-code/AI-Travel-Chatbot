@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { chatHandler } from './chat'
+import { loginHandler, logoutHandler, meHandler, registerHandler, tripsHandler } from './auth'
 import { getItineraryHandler } from './itinerary'
 import {
   createSessionHandler,
@@ -21,12 +22,17 @@ app.use('/api/*', cors({
     return allowed.includes(origin) ? origin : null
   },
   allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'X-Session-Token'],
+  allowHeaders: ['Content-Type', 'X-Session-Token', 'X-Auth-Token'],
   maxAge: 86400,
 }))
 
 app.get('/', (c) => c.json({ status: 'ok', service: 'AI Travel Planner API' }))
 app.post('/api/session', createSessionHandler)
+app.post('/api/auth/register', registerHandler)
+app.post('/api/auth/login', loginHandler)
+app.post('/api/auth/logout', logoutHandler)
+app.get('/api/auth/me', meHandler)
+app.get('/api/trips', tripsHandler)
 app.post('/api/chat', chatHandler)
 app.get('/api/history/:session_id', getHistoryHandler)
 app.get('/api/preferences/:session_id', getPreferencesHandler)

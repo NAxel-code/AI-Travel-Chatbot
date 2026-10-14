@@ -111,6 +111,42 @@ export function parseChatRequest(value: unknown): { sessionId: string; message: 
   }
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function parseEmail(value: unknown): string {
+  const email = requiredString(value, 'email', 254).toLowerCase()
+  if (!EMAIL_PATTERN.test(email)) throw new ValidationError('Format email tidak valid.')
+  return email
+}
+
+export function parseRegisterRequest(value: unknown): {
+  sessionId: string
+  email: string
+  password: string
+  displayName: string
+} {
+  const body = asRecord(value, 'Request')
+  const email = parseEmail(body.email)
+  // Passwords are used as-is: no trimming, so spaces are significant.
+  if (typeof body.password !== 'string' || body.password.length < 8 || body.password.length > 128) {
+    throw new ValidationError('Password harus 8-128 karakter.')
+  }
+  return {
+    sessionId: validateSessionId(body.session_id),
+    email,
+    password: body.password,
+    displayName: optionalString(body.display_name, 'display_name', 60) ?? email.split('@')[0].slice(0, 60),
+  }
+}
+
+export function parseLoginRequest(value: unknown): { sessionId: string; email: string; password: string } {
+  const body = asRecord(value, 'Request')
+  if (typeof body.password !== 'string' || !body.password || body.password.length > 128) {
+    throw new ValidationError('Password wajib diisi.')
+  }
+  return { sessionId: validateSessionId(body.session_id), email: parseEmail(body.email), password: body.password }
+}
+
 export function parseBuildItinerary(value: unknown, now = new Date()): BuildItineraryInput {
   const args = asRecord(value, 'Argumen build_itinerary')
   const destination = requiredString(args.destination, 'destination', 160)
