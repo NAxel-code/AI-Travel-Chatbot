@@ -32,12 +32,13 @@ function itemInsertStatement(db: D1Database, itineraryId: string, item: Itinerar
   return db.prepare(`
     INSERT INTO itinerary_items (
       id, itinerary_id, day_number, time_slot, title, description, category,
-      location_name, address, latitude, longitude, source_url
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      location_name, address, latitude, longitude, source_url, rating, user_ratings_total, source_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     crypto.randomUUID(), itineraryId, item.day_number, item.time_slot, item.title,
     item.description, item.category, item.location_name, item.address,
     item.latitude, item.longitude, item.source_url,
+    item.rating ?? null, item.user_ratings_total ?? null, item.source_name || 'Google Maps',
   )
 }
 
@@ -65,6 +66,9 @@ function applyGroundedProvenance(items: ItineraryItemInput[], state: AgentToolSt
       latitude: grounded.latitude,
       longitude: grounded.longitude,
       source_url: grounded.source_url,
+      rating: item.rating ?? grounded.rating ?? null,
+      user_ratings_total: item.user_ratings_total ?? grounded.user_ratings_total ?? null,
+      source_name: item.source_name || grounded.source_name || 'Google Maps',
     }
   })
 }
@@ -129,7 +133,7 @@ export async function executeAgentTool(
       }
 
       const existingResult = await env.DB.prepare(`
-        SELECT title, location_name, address, latitude, longitude, source_url
+        SELECT title, location_name, address, latitude, longitude, source_url, rating, user_ratings_total, source_name
         FROM itinerary_items WHERE itinerary_id = ? AND day_number = ?
       `).bind(itinerary.id, args.day_number).all<ItineraryItemInput>()
       const existingByTitle = new Map(
@@ -145,6 +149,9 @@ export async function executeAgentTool(
           latitude: existing.latitude,
           longitude: existing.longitude,
           source_url: existing.source_url,
+          rating: existing.rating,
+          user_ratings_total: existing.user_ratings_total,
+          source_name: existing.source_name,
         }
       })
       const items = applyGroundedProvenance(mergedItems, state)
@@ -167,11 +174,11 @@ export async function executeAgentTool(
       }
       state.placeSearches += 1
       const args = parsePlaceSearch(rawArgs)
-      const result = await searchPlaces(env.CHAT_HISTORY, args.query, args.destination, args.limit)
+      const result = await searchPlaces(env.CHAT_HISTORY, args.query, args.destination, args.limit, env.GOOGLE_MAPS_API_KEY)
       for (const place of result.places) state.groundedPlaces.set(place.source_url, place)
       return {
         response: { status: 'success', ...result },
-        notification: `Data tempat untuk “${args.query}” diperiksa melalui OpenStreetMap.`,
+        notification: `Data tempat untuk “${args.query}” diverifikasi via ${result.source}.`,
       }
     }
 

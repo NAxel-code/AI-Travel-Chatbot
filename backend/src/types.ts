@@ -2,6 +2,7 @@ export type Bindings = {
   DB: D1Database
   CHAT_HISTORY: KVNamespace
   GEMINI_API_KEY: string
+  GOOGLE_MAPS_API_KEY?: string
   FRONTEND_ORIGIN?: string
 }
 
@@ -28,6 +29,9 @@ export type ItineraryItemInput = {
   latitude: number | null
   longitude: number | null
   source_url: string | null
+  rating?: number | null
+  user_ratings_total?: number | null
+  source_name?: string | null
 }
 
 export type BuildItineraryInput = {

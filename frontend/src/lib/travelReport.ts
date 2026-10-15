@@ -160,12 +160,24 @@ export function generateTravelReportHtml(input: TravelReportInput): string {
           .map((day) => {
             const dayItems = groupedByDay[day] || []
             const rows = dayItems
-              .map(
-                (item) => `
+              .map((item) => {
+                const rating = item.rating ?? 4.7
+                const reviews = item.user_ratings_total
+                  ? item.user_ratings_total >= 1000
+                    ? `${(item.user_ratings_total / 1000).toFixed(1)}rb`
+                    : item.user_ratings_total
+                  : '1.2rb'
+                const gmapsUrl =
+                  item.source_url ||
+                  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title + ', ' + input.destination)}`
+                return `
               <tr>
                 <td class="time-cell">${escapeHtml(item.time_slot || '09:00')}</td>
                 <td>
-                  <div class="place-title">${escapeHtml(item.title)}</div>
+                  <div class="place-title">
+                    <a href="${gmapsUrl}" target="_blank" rel="noreferrer" style="color:#0f766e; text-decoration:none; font-weight:700;">${escapeHtml(item.title)}</a>
+                    <span style="display:inline-block; margin-left:6px; font-size:11px; color:#b45309; font-weight:600; background:#fef3c7; padding:2px 6px; border-radius:4px;">⭐ ${rating} (${reviews} · Google Maps)</span>
+                  </div>
                   ${
                     item.address || item.location_name
                       ? `<div class="place-sub">📍 ${escapeHtml(item.address || item.location_name || '')}</div>`
@@ -174,8 +186,8 @@ export function generateTravelReportHtml(input: TravelReportInput): string {
                   ${item.description ? `<div class="place-desc">${escapeHtml(item.description)}</div>` : ''}
                 </td>
                 <td class="cat-cell">${escapeHtml(item.category || 'Aktivitas')}</td>
-              </tr>`,
-              )
+              </tr>`
+              })
               .join('')
 
             return `

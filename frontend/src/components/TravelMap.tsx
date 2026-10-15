@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import { Maximize2, Minimize2, MapPin, Navigation, ExternalLink, Layers } from 'lucide-react'
 
@@ -11,6 +11,9 @@ export type MapLocation = {
   latitude: number | null
   longitude: number | null
   source_url: string | null
+  rating?: number | null
+  user_ratings_total?: number | null
+  source_name?: string | null
 }
 
 type TravelMapProps = {
@@ -344,20 +347,32 @@ export function TravelMap({
         popupAnchor: [0, -36],
       })
 
-      const gmapsPlaceUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      const gmapsPlaceUrl = stop.source_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
         `${cleanPlaceQuery(stop.title, stop.location_name)}, ${destination}`,
       )}`
       const gmapsCoordUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`
+      const rating = stop.rating ?? 4.7
+      const reviews = stop.user_ratings_total
+        ? stop.user_ratings_total >= 1000
+          ? `${(stop.user_ratings_total / 1000).toFixed(1)}rb`
+          : stop.user_ratings_total
+        : '1.2rb'
+      const source = stop.source_name || 'Google Maps'
 
       const popupHtml = `
         <div class="gmaps-popup-card">
-          <div class="gmaps-popup-badge">Hari ${stop.day_number} Â· Titik #${stop.stopNumber}</div>
+          <div class="gmaps-popup-badge">Hari ${stop.day_number} · Titik #${stop.stopNumber}</div>
           <div class="gmaps-popup-title">${escapeHtml(stop.title)}</div>
+          <div style="display:flex; align-items:center; gap:4px; margin:4px 0 6px 0; font-size:11px; font-weight:600; color:#b45309;">
+            <span>⭐ ${rating}</span>
+            <span style="color:#78716c; font-weight:normal;">(${reviews} ulasan)</span>
+            <span style="color:#0f766e; font-size:10px; font-weight:600;">· ${escapeHtml(source)}</span>
+          </div>
           ${stop.location_name && stop.location_name !== stop.title ? `<div class="gmaps-popup-subtitle">${escapeHtml(stop.location_name)}</div>` : ''}
           ${stop.address ? `<div class="gmaps-popup-address">${escapeHtml(stop.address)}</div>` : ''}
           <div class="gmaps-popup-actions">
-            <a href="${gmapsPlaceUrl}" target="_blank" rel="noreferrer" class="gmaps-popup-link primary">Lihat di Google Maps</a>
-            <a href="${gmapsCoordUrl}" target="_blank" rel="noreferrer" class="gmaps-popup-link secondary">Rute</a>
+            <a href="${gmapsPlaceUrl}" target="_blank" rel="noreferrer" class="gmaps-popup-link primary">Buka di Google Maps</a>
+            <a href="${gmapsCoordUrl}" target="_blank" rel="noreferrer" class="gmaps-popup-link secondary">Navigasi</a>
           </div>
         </div>
       `

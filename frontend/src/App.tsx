@@ -24,6 +24,8 @@ import {
   UtensilsCrossed,
   FileText,
   Download,
+  Share2,
+  CheckSquare,
 } from 'lucide-react'
 import { Markdown } from './components/Markdown'
 import { createIcs } from './lib/calendar'
@@ -34,6 +36,7 @@ import { AuthModal } from './components/AuthModal'
 import { DayCard } from './components/DayCard'
 import { TravelMap } from './components/TravelMap'
 import { ExpensesView } from './components/ExpensesView'
+import { PackingListModal } from './components/PackingListModal'
 import type { ItineraryItem } from './components/DayCard'
 
 function resolveApiBase(): string {
@@ -214,6 +217,41 @@ function formatRangeDates(start?: string, end?: string): string {
   }
 }
 
+function shareToWhatsApp(
+  destination: string,
+  startDate?: string,
+  endDate?: string,
+  items: ItineraryItem[] = [],
+  dayCount: number = 3,
+) {
+  let text = `🌴 *Rencana Liburan ke ${destination} (${dayCount} Hari)*\n`
+  if (startDate && endDate) {
+    text += `📅 Periode: ${startDate} s/d ${endDate}\n`
+  }
+  text += `\n✨ *Ringkasan Rute Harian:*\n`
+
+  const grouped = items.reduce<Record<number, ItineraryItem[]>>((acc, it) => {
+    acc[it.day_number] = acc[it.day_number] || []
+    acc[it.day_number].push(it)
+    return acc
+  }, {})
+
+  const days = Object.keys(grouped).map(Number).sort((a, b) => a - b)
+  if (days.length > 0) {
+    for (const d of days) {
+      const dayItems = grouped[d] || []
+      const stops = dayItems.map((it) => it.title).slice(0, 3).join(' ➔ ')
+      text += `• *Hari ke-${d}:* ${stops}${dayItems.length > 3 ? '...' : ''}\n`
+    }
+  } else {
+    text += `• Eksplorasi destinasi terbaik di ${destination}\n`
+  }
+
+  text += `\n🗺️ Disusun otomatis oleh AI Travel Planner (Rute):\n`
+  text += `https://ai-travel-chatbot-gamma.vercel.app`
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noreferrer')
+}
+
 export default function App() {
   const [credentials, setCredentials] = useState<Credentials | null>(null)
   const [messages, setMessages] = useState<Message[]>([{ role: 'model', content: INITIAL_GREETING }])
@@ -225,6 +263,7 @@ export default function App() {
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [preferences, setPreferences] = useState<Preference[]>([])
   const [showPreferences, setShowPreferences] = useState(false)
+  const [isPackingModalOpen, setIsPackingModalOpen] = useState(false)
   const [notices, setNotices] = useState<Notice[]>([])
   const [pageError, setPageError] = useState<string | null>(null)
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
@@ -736,6 +775,16 @@ export default function App() {
         }}
         onExportPdf={handleExportReport}
         onExportCalendar={exportCalendar}
+        onShareWhatsApp={() =>
+          shareToWhatsApp(
+            itinerary?.destination || inferredDestination,
+            itinerary?.start_date,
+            itinerary?.end_date,
+            itinerary?.items || [],
+            inferredDayCount,
+          )
+        }
+        onOpenPackingList={() => setIsPackingModalOpen(true)}
         onTogglePreferences={() => {
           setActiveTab('chat')
           setShowPreferences((v) => !v)
@@ -960,20 +1009,46 @@ export default function App() {
                 </div>
 
                 {/* Primary Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    className="flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-teal-800 active:scale-[0.98]"
+                    className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-teal-700 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-teal-800 active:scale-[0.98]"
                   >
                     <Download className="h-4 w-4" />
-                    <span>Unduh / Cetak Laporan (PDF)</span>
+                    <span>Laporan Lengkap (PDF)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      shareToWhatsApp(
+                        itinerary?.destination || inferredDestination,
+                        itinerary?.start_date,
+                        itinerary?.end_date,
+                        itinerary?.items || [],
+                        inferredDayCount,
+                      )
+                    }
+                    className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98]"
+                    title="Kirim ringkasan rute & budget ke WhatsApp"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    <span>Bagikan ke WhatsApp</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPackingModalOpen(true)}
+                    className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
+                    title="Buka checklist barang bawaan traveler"
+                  >
+                    <CheckSquare className="h-4 w-4 text-teal-700" />
+                    <span>Checklist Bawaan</span>
                   </button>
                   {itinerary && (
                     <button
                       type="button"
                       onClick={exportCalendar}
-                      className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
+                      className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
                       title="Simpan jadwal ke kalender HP (.ics)"
                     >
                       <Calendar className="h-4 w-4 text-teal-700" />
@@ -1000,6 +1075,38 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Reply Suggestions */}
+            {hasAskedAi && !isLoading && (
+              <div className="animate-rise space-y-1.5 pt-1">
+                <p className="text-[11px] font-semibold text-stone-500 flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-amber-500" /> Pertanyaan lanjutan:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    '🍽️ Rekomendasi kuliner lokal halal terpopuler',
+                    '🛵 Info sewa motor harian & rute paling hemat',
+                    '🌅 Tambahkan spot sunset & foto estetik terbaik',
+                    '🎒 Checklist barang bawaan traveler',
+                  ].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => {
+                        if (chip.includes('Checklist')) {
+                          setIsPackingModalOpen(true)
+                        } else {
+                          void sendMessage(chip)
+                        }
+                      }}
+                      className="rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 transition hover:border-teal-600/50 hover:bg-teal-50 hover:text-teal-900 active:scale-95 shadow-sm"
+                    >
+                      {chip}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -1318,6 +1425,13 @@ export default function App() {
       </nav>
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} onSubmit={submitAuth} />}
+
+      <PackingListModal
+        isOpen={isPackingModalOpen}
+        onClose={() => setIsPackingModalOpen(false)}
+        destination={itinerary?.destination || inferredDestination}
+        dayCount={inferredDayCount}
+      />
 
       {showTrips && (
         <div

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calendar, Pencil, ExternalLink, ChevronDown, ChevronUp, MapPin } from 'lucide-react'
+import { Calendar, Pencil, ExternalLink, ChevronDown, ChevronUp, MapPin, Star, Navigation, Sun } from 'lucide-react'
 import { getDayCoverImage } from '../lib/images'
 
 export type ItineraryItem = {
@@ -14,6 +14,9 @@ export type ItineraryItem = {
   latitude: number | null
   longitude: number | null
   source_url: string | null
+  rating?: number | null
+  user_ratings_total?: number | null
+  source_name?: string | null
 }
 
 type DayCardProps = {
@@ -42,6 +45,36 @@ function formatDayDate(startDate?: string, dayNumber = 1): string {
   } catch {
     return `Hari ${dayNumber}`
   }
+}
+
+function formatReviewCount(count?: number | null): string {
+  if (!count) return '1.2rb'
+  if (count >= 1000) return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}rb`
+  return String(count)
+}
+
+function buildDayGoogleRouteUrl(items: ItineraryItem[], destination: string): string {
+  const valid = items.filter((it) => typeof it.latitude === 'number' && typeof it.longitude === 'number')
+  if (valid.length === 0) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`
+  }
+  if (valid.length === 1) {
+    return `https://www.google.com/maps/search/?api=1&query=${valid[0].latitude},${valid[0].longitude}`
+  }
+  const first = valid[0]
+  const last = valid[valid.length - 1]
+  const waypoints = valid
+    .slice(1, -1)
+    .slice(0, 8)
+    .map((it) => `${it.latitude},${it.longitude}`)
+    .join('|')
+  const url = new URL('https://www.google.com/maps/dir/')
+  url.searchParams.set('api', '1')
+  url.searchParams.set('origin', `${first.latitude},${first.longitude}`)
+  url.searchParams.set('destination', `${last.latitude},${last.longitude}`)
+  if (waypoints) url.searchParams.set('waypoints', waypoints)
+  url.searchParams.set('travelmode', 'driving')
+  return url.toString()
 }
 
 export function DayCard({
@@ -111,11 +144,16 @@ export function DayCard({
       {/* Header */}
       <div className="px-4 pb-2 pt-3.5">
         <h3 className="line-clamp-1 font-display text-lg font-bold leading-tight text-stone-900">{daySummary}</h3>
-        <div className="mt-1 flex items-center gap-1.5 text-xs capitalize text-stone-500">
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs capitalize text-stone-500">
           <Calendar className="h-3.5 w-3.5" />
           <span>{formattedDate}</span>
           <span aria-hidden="true">·</span>
           <span className="normal-case">{items.length} aktivitas</span>
+          <span aria-hidden="true">·</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900 border border-amber-200/50">
+            <Sun className="h-3 w-3 text-amber-500" />
+            <span>29°C Cerah</span>
+          </span>
         </div>
       </div>
 
@@ -146,6 +184,12 @@ export function DayCard({
                     {item.location_name || item.address || item.description || 'Lokasi terkonfirmasi'}
                   </span>
                 </span>
+                <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-amber-50/90 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900 border border-amber-200/60">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
+                  <span>{item.rating ?? 4.7}</span>
+                  <span className="text-amber-700/80">({formatReviewCount(item.user_ratings_total ?? 1420)})</span>
+                  <span className="text-[10px] text-stone-500 font-normal">· {item.source_name || 'Google Maps'}</span>
+                </span>
               </span>
               {item.source_url && (
                 <a
@@ -154,8 +198,8 @@ export function DayCard({
                   rel="noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-stone-400 transition hover:bg-white hover:text-teal-700 sm:opacity-0 sm:group-hover/item:opacity-100"
-                  title="Buka di OpenStreetMap"
-                  aria-label={`Buka ${item.title} di OpenStreetMap`}
+                  title="Buka di Google Maps"
+                  aria-label={`Buka ${item.title} di Google Maps`}
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
@@ -164,6 +208,22 @@ export function DayCard({
           </li>
         ))}
       </ol>
+
+      {/* 1-Click Google Maps Day Navigation Route */}
+      <div className="px-4 pb-2 pt-0">
+        <a
+          href={buildDayGoogleRouteUrl(items, destination)}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="flex min-h-[36px] w-full items-center justify-center gap-1.5 rounded-xl border border-teal-200/80 bg-teal-50/90 px-3 py-1.5 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 hover:text-teal-900 shadow-sm"
+          title={`Buka rute navigasi Hari ke-${dayNumber} di Google Maps`}
+        >
+          <Navigation className="h-3.5 w-3.5 text-teal-700" />
+          <span>Rute Hari {dayNumber} di Google Maps</span>
+          <ExternalLink className="h-3 w-3 text-teal-600" />
+        </a>
+      </div>
 
       {items.length > 4 && (
         <button

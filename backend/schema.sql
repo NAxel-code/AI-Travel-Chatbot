@@ -71,6 +71,9 @@ CREATE TABLE itinerary_items (
   latitude REAL,
   longitude REAL,
   source_url TEXT,
+  rating REAL,
+  user_ratings_total INTEGER,
+  source_name TEXT DEFAULT 'Google Maps',
   FOREIGN KEY (itinerary_id) REFERENCES itineraries(id) ON DELETE CASCADE
 );
 

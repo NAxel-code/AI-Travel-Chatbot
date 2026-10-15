@@ -78,6 +78,20 @@ function optionalHttpsUrl(value: unknown): string | null {
   return url
 }
 
+function optionalRating(value: unknown): number | null {
+  if (value == null || value === '') return null
+  const num = Number(value)
+  if (!Number.isFinite(num) || num < 1 || num > 5) return null
+  return Math.round(num * 10) / 10
+}
+
+function optionalCount(value: unknown): number | null {
+  if (value == null || value === '') return null
+  const num = Number(value)
+  if (!Number.isFinite(num) || num < 0) return null
+  return Math.round(num)
+}
+
 function parseItem(value: unknown, forcedDay?: number): ItineraryItemInput {
   const item = asRecord(value, 'Item itinerary')
   const dayNumber = forcedDay ?? item.day_number
@@ -95,6 +109,9 @@ function parseItem(value: unknown, forcedDay?: number): ItineraryItemInput {
     latitude: optionalCoordinate(item.latitude, 'latitude', -90, 90),
     longitude: optionalCoordinate(item.longitude, 'longitude', -180, 180),
     source_url: optionalHttpsUrl(item.source_url),
+    rating: optionalRating(item.rating),
+    user_ratings_total: optionalCount(item.user_ratings_total),
+    source_name: optionalString(item.source_name, 'source_name', 100) || 'Google Maps',
   }
 }
 

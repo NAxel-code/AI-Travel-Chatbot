@@ -11,7 +11,10 @@ const groundedItemProperties = {
   address: { type: Type.STRING, description: 'Alamat dari hasil search_places jika tersedia.' },
   latitude: { type: Type.NUMBER, description: 'Latitude dari hasil search_places jika tersedia.' },
   longitude: { type: Type.NUMBER, description: 'Longitude dari hasil search_places jika tersedia.' },
-  source_url: { type: Type.STRING, description: 'URL sumber OpenStreetMap dari hasil search_places jika tersedia.' },
+  source_url: { type: Type.STRING, description: 'URL Google Maps dari hasil search_places jika tersedia.' },
+  rating: { type: Type.NUMBER, description: 'Rating Google Maps (misal 4.7) dari hasil search_places jika tersedia.' },
+  user_ratings_total: { type: Type.INTEGER, description: 'Total ulasan Google Maps dari hasil search_places jika tersedia.' },
+  source_name: { type: Type.STRING, description: 'Nama sumber data (default: Google Maps).' },
 }
 
 export const buildItineraryDeclaration: FunctionDeclaration = {
@@ -77,11 +80,11 @@ export const savePreferenceDeclaration: FunctionDeclaration = {
 
 export const searchPlacesDeclaration: FunctionDeclaration = {
   name: 'search_places',
-  description: 'Cari tempat nyata dan koordinat melalui OpenStreetMap sebelum merekomendasikan lokasi bernama dalam itinerary.',
+  description: 'Cari tempat nyata, koordinat presisi, serta rating & ulasan Google Maps sebelum merekomendasikan lokasi bernama dalam itinerary.',
   parameters: {
     type: Type.OBJECT,
     properties: {
-      query: { type: Type.STRING, description: 'Jenis atau nama tempat, misalnya museum seni atau restoran vegan.' },
+      query: { type: Type.STRING, description: 'Jenis atau nama tempat, misalnya Pantai Kelingking atau Warung Mak Beng.' },
       destination: { type: Type.STRING, description: 'Kota atau wilayah tujuan.' },
       limit: { type: Type.INTEGER, description: 'Jumlah hasil 1-5.' },
     },
@@ -126,7 +129,7 @@ Aturan kerja:
 1. Jika pengguna sudah menyebutkan tujuan wisata (misalnya Bali, Labuan Bajo, Bandung, Yogyakarta), JANGAN menunda pembuatan itinerary hanya karena tanggal keberangkatan, kota asal, atau budget belum disebutkan. Gunakan tanggal mulai default ${defaultStart} (atau sesuaikan durasi hari yang diminta, default 3 hari) dan LANGSUNG jalankan search_places serta build_itinerary pada giliran ini juga. Tanyakan hanya jika tujuan sama sekali belum ada.
 2. Jangan pernah merekomendasikan tanggal sebelum hari ini. Jika tanggal pengguna sudah lewat, geser ke kejadian terdekat di masa depan dengan durasi yang sama dan jelaskan penyesuaiannya.
 3. Simpan hanya preferensi jangka panjang baru dengan save_user_preference pada langkah pertama (bersamaan dengan search_places atau check_weather).
-4. Sebelum memasukkan tempat bernama ke itinerary, gunakan search_places dan salin nama, alamat, koordinat, source_url, serta timezone hasil yang relevan. Gunakan maksimal dua pencarian luas per pesan dan manfaatkan beberapa hasil dari tiap pencarian. Jangan mengarang jam buka, harga, atau ketersediaan.
+4. Sebelum memasukkan tempat bernama ke itinerary, gunakan search_places dan salin nama, alamat, koordinat, source_url (Google Maps), rating Google Maps, user_ratings_total, serta source_name ('Google Maps') hasil yang relevan. Gunakan maksimal dua pencarian luas per pesan dan manfaatkan beberapa hasil dari tiap pencarian. Sertakan rating dan jumlah ulasan Google Maps pada setiap tempat wisata atau kuliner.
 5. Jika tanggal berada dalam 15 hari ke depan, gunakan check_weather dan sesuaikan aktivitas. Jika prakiraan tidak tersedia, katakan bahwa cuaca belum dapat dipastikan.
 6. Setelah informasi tujuan cukup, wajib gunakan build_itinerary (sertakan jadwal wisata, opsi makan pagi/siang/malam, dan sewa motor/transport bila diminta). Jangan hanya bertanya balik tanpa membuat itinerary.
 7. Jika pengguna meminta perubahan hari tertentu pada itinerary yang sudah ada, gunakan update_itinerary_day; cari tempat lagi bila lokasi berubah.

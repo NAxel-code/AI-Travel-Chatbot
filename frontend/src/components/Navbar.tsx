@@ -1,5 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, ChevronDown, Download, CalendarDays, Route, Settings2, Plus, Loader2, UserRound, LogOut, LogIn, Luggage } from 'lucide-react'
+import {
+  Search,
+  ChevronDown,
+  Download,
+  CalendarDays,
+  Route,
+  Settings2,
+  Plus,
+  Loader2,
+  UserRound,
+  LogOut,
+  LogIn,
+  Luggage,
+  Share2,
+  CheckSquare,
+} from 'lucide-react'
 
 type NavbarUser = { email: string; display_name: string }
 
@@ -10,6 +25,8 @@ type NavbarProps = {
   onSearch?: (query: string) => void
   onExportPdf?: () => void
   onExportCalendar?: () => void
+  onShareWhatsApp?: () => void
+  onOpenPackingList?: () => void
   onTogglePreferences?: () => void
   onNewTrip?: () => void
   onNewSession?: () => void
@@ -26,6 +43,8 @@ export function Navbar({
   onSearch,
   onExportPdf,
   onExportCalendar,
+  onShareWhatsApp,
+  onOpenPackingList,
   onTogglePreferences,
   onNewTrip,
   onNewSession,
@@ -86,6 +105,30 @@ export function Navbar({
 
       {/* Actions */}
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        {hasItinerary && onShareWhatsApp && (
+          <button
+            type="button"
+            onClick={onShareWhatsApp}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-[0.97]"
+            title="Bagikan rute perjalanan ke WhatsApp"
+            aria-label="Bagikan WhatsApp"
+          >
+            <Share2 className="h-4 w-4 text-emerald-700" />
+            <span className="hidden md:inline">WhatsApp</span>
+          </button>
+        )}
+        {onOpenPackingList && (
+          <button
+            type="button"
+            onClick={onOpenPackingList}
+            className="hidden sm:flex min-h-[44px] items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 text-sm font-semibold text-stone-700 transition hover:border-stone-300 hover:bg-stone-50 active:scale-[0.97]"
+            title="Buka checklist barang bawaan traveler"
+            aria-label="Checklist bawaan"
+          >
+            <CheckSquare className="h-4 w-4 text-teal-700" />
+            <span className="hidden lg:inline">Packing</span>
+          </button>
+        )}
         {hasItinerary && onExportPdf && (
           <button
             type="button"
@@ -197,6 +240,34 @@ export function Navbar({
                   className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
                 >
                   <Luggage className="h-4 w-4 text-stone-500" /> Perjalanan saya
+                </button>
+              )}
+
+              {onOpenPackingList && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMenu(false)
+                    onOpenPackingList()
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+                >
+                  <CheckSquare className="h-4 w-4 text-teal-700" /> Checklist bawaan
+                </button>
+              )}
+
+              {hasItinerary && onShareWhatsApp && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMenu(false)
+                    onShareWhatsApp()
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-50"
+                >
+                  <Share2 className="h-4 w-4 text-emerald-600" /> Bagikan ke WhatsApp
                 </button>
               )}
 
