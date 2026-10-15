@@ -29,6 +29,7 @@ type MapStyle = 'roadmap' | 'hybrid' | 'terrain'
 
 type ResolvedStop = MapLocation & {
   stopNumber: number
+  dayOrder: number
   latitude: number
   longitude: number
 }
@@ -53,17 +54,17 @@ const TILE_CONFIGS: Record<MapStyle, { url: string; label: string; attribution: 
   roadmap: {
     url: 'https://{s}.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}',
     label: 'Peta',
-    attribution: 'Map data Â©2026 Google',
+    attribution: 'Map data ©2026 Google',
   },
   hybrid: {
     url: 'https://{s}.google.com/vt/lyrs=y&hl=id&x={x}&y={y}&z={z}',
     label: 'Satelit',
-    attribution: 'Imagery Â©2026 Google',
+    attribution: 'Imagery ©2026 Google',
   },
   terrain: {
     url: 'https://{s}.google.com/vt/lyrs=p&hl=id&x={x}&y={y}&z={z}',
     label: 'Medan',
-    attribution: 'Terrain Â©2026 Google',
+    attribution: 'Terrain ©2026 Google',
   },
 }
 
@@ -224,8 +225,12 @@ export function TravelMap({
       : defaultDestinationCenter(destination)
 
     const seenExactCoords = new Map<string, number>()
+    const dayCounters = new Map<number, number>()
 
     return filteredItems.map((item, idx) => {
+      const dayOrder = (dayCounters.get(item.day_number) || 0) + 1
+      dayCounters.set(item.day_number, dayOrder)
+
       const itemCacheKey = `item:${destination.toLowerCase()}:${cleanPlaceQuery(item.title, item.location_name).toLowerCase()}`
       const cached = geocodedMap[itemCacheKey]
 
@@ -256,6 +261,7 @@ export function TravelMap({
         ...item,
         id: item.id || `${item.day_number}-${idx}`,
         stopNumber: idx + 1,
+        dayOrder,
         latitude: finalLat,
         longitude: finalLng,
         address: item.address || cached?.address || `${destination}, Indonesia`,
@@ -322,15 +328,32 @@ export function TravelMap({
     tileLayerRef.current = layer
 
     const markers: L.Marker[] = []
-    const latLngs: L.LatLngExpression[] = []
+
+    // Group stops by day to maintain clean, isolated day routes without criss-crossing
+    const stopsByDay = new Map<number, ResolvedStop[]>()
+    resolvedStops.forEach((stop) => {
+      const list = stopsByDay.get(stop.day_number) || []
+      list.push(stop)
+      stopsByDay.set(stop.day_number, list)
+    })
+
+    const DAY_ROUTE_PALETTE = [
+      { casing: '#1e40af', stroke: '#3b82f6', pin: '#2563eb' }, // Day 1 Blue
+      { casing: '#115e59', stroke: '#14b8a6', pin: '#0d9488' }, // Day 2 Teal
+      { casing: '#92400e', stroke: '#f59e0b', pin: '#d97706' }, // Day 3 Amber
+      { casing: '#5b21b6', stroke: '#a855f7', pin: '#7c3aed' }, // Day 4 Purple
+      { casing: '#9f1239', stroke: '#f43f5e', pin: '#e11d48' }, // Day 5 Rose
+      { casing: '#075985', stroke: '#06b6d4', pin: '#0284c7' }, // Day 6 Sky
+      { casing: '#9a3412', stroke: '#fb923c', pin: '#ea580c' }, // Day 7 Orange
+    ]
 
     resolvedStops.forEach((stop) => {
       const latLng: [number, number] = [stop.latitude, stop.longitude]
-      latLngs.push(latLng)
+      const dayColorCfg = DAY_ROUTE_PALETTE[(stop.day_number - 1) % DAY_ROUTE_PALETTE.length]
+      const pinFill = selectedDay ? '#ea4335' : dayColorCfg.pin
+      const pinBadge = selectedDay ? String(stop.dayOrder) : `H${stop.day_number}`
 
-      const pinFill = '#ea4335'
-
-      // Google Maps style teardrop SVG pin with stop number
+      // Google Maps style teardrop SVG pin
       const pinIcon = L.divIcon({
         className: 'gmaps-marker-wrapper',
         html: `
@@ -338,7 +361,7 @@ export function TravelMap({
             <svg viewBox="0 0 28 38" width="30" height="40" xmlns="http://www.w3.org/2000/svg">
               <path d="M14 1C6.82 1 1 6.82 1 14c0 9.64 11.45 21.55 12.18 22.3a1.14 1.14 0 0 0 1.64 0C15.55 35.55 27 23.64 27 14 27 6.82 21.18 1 14 1z" fill="${pinFill}" stroke="#ffffff" stroke-width="2"/>
               <circle cx="14" cy="14" r="8.5" fill="#ffffff"/>
-              <text x="14" y="17.5" text-anchor="middle" fill="${pinFill}" font-size="10.5" font-weight="800" font-family="Arial, sans-serif">${stop.stopNumber}</text>
+              <text x="14" y="${pinBadge.length > 2 ? '17' : '17.5'}" text-anchor="middle" fill="${pinFill}" font-size="${pinBadge.length > 2 ? '9' : '10.5'}" font-weight="800" font-family="Arial, sans-serif">${pinBadge}</text>
             </svg>
           </div>
         `,
@@ -361,7 +384,9 @@ export function TravelMap({
 
       const popupHtml = `
         <div class="gmaps-popup-card">
-          <div class="gmaps-popup-badge">Hari ${stop.day_number} · Titik #${stop.stopNumber}</div>
+          <div class="gmaps-popup-badge" style="background:${selectedDay ? '#e8f0fe' : '#f1f5f9'}; color:${selectedDay ? '#1967d2' : '#334155'};">
+            Hari ${stop.day_number} · Titik #${stop.dayOrder}
+          </div>
           <div class="gmaps-popup-title">${escapeHtml(stop.title)}</div>
           <div style="display:flex; align-items:center; gap:4px; margin:4px 0 6px 0; font-size:11px; font-weight:600; color:#b45309;">
             <span>⭐ ${rating}</span>
@@ -391,22 +416,62 @@ export function TravelMap({
       markers.push(marker)
     })
 
-    // Draw Google Maps Navigation Blue route line (outer casing + inner stroke)
-    if (latLngs.length > 1) {
-      L.polyline(latLngs, {
-        color: '#185abc',
-        weight: 6,
-        opacity: 0.85,
-        lineCap: 'round',
-        lineJoin: 'round',
-      }).addTo(map)
-      L.polyline(latLngs, {
-        color: '#4285f4',
-        weight: 3.5,
-        opacity: 1,
-        lineCap: 'round',
-        lineJoin: 'round',
-      }).addTo(map)
+    // Draw route lines with PER-DAY ISOLATION (NEVER cross between days, preventing spiderweb triangle loop)
+    if (selectedDay) {
+      // Single Day: Bold official Google Blue turn-by-turn path
+      const dayStops = stopsByDay.get(selectedDay) || []
+      const distinctCoords: [number, number][] = []
+      dayStops.forEach((s) => {
+        const last = distinctCoords[distinctCoords.length - 1]
+        if (!last || Math.hypot(last[0] - s.latitude, last[1] - s.longitude) > 0.0001) {
+          distinctCoords.push([s.latitude, s.longitude])
+        }
+      })
+      if (distinctCoords.length > 1) {
+        L.polyline(distinctCoords, {
+          color: '#185abc',
+          weight: 6,
+          opacity: 0.85,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(map)
+        L.polyline(distinctCoords, {
+          color: '#4285f4',
+          weight: 3.5,
+          opacity: 1,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(map)
+      }
+    } else {
+      // All Days Overview: Draw EACH day's route separately in its own distinctive palette
+      // CRITICAL: Day N never connects to Day N+1, preventing any spiderweb or triangle loop
+      stopsByDay.forEach((dayStops, dayNum) => {
+        const distinctCoords: [number, number][] = []
+        dayStops.forEach((s) => {
+          const last = distinctCoords[distinctCoords.length - 1]
+          if (!last || Math.hypot(last[0] - s.latitude, last[1] - s.longitude) > 0.0001) {
+            distinctCoords.push([s.latitude, s.longitude])
+          }
+        })
+        if (distinctCoords.length > 1) {
+          const palette = DAY_ROUTE_PALETTE[(dayNum - 1) % DAY_ROUTE_PALETTE.length]
+          L.polyline(distinctCoords, {
+            color: palette.casing,
+            weight: 5,
+            opacity: 0.5,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }).addTo(map)
+          L.polyline(distinctCoords, {
+            color: palette.stroke,
+            weight: 3,
+            opacity: 0.85,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }).addTo(map)
+        }
+      })
     }
 
     if (markers.length > 0) {
@@ -424,7 +489,7 @@ export function TravelMap({
       map.remove()
       mapInstanceRef.current = null
     }
-  }, [resolvedStops, destination, geocodedMap, mapStyle, onSelectPlace])
+  }, [resolvedStops, destination, geocodedMap, mapStyle, selectedDay, onSelectPlace])
 
   // Fly to selectedPlace when clicked from DayCard or stop pill
   useEffect(() => {
@@ -461,8 +526,8 @@ export function TravelMap({
 
   return (
     <div
-      className={`relative flex flex-col overflow-hidden rounded-3xl border border-stone-200 bg-[#e5e3df] shadow-sm transition-all ${
-        isFullscreen ? 'fixed inset-4 z-50 rounded-2xl shadow-2xl' : className
+      className={`relative isolate z-0 flex flex-col overflow-hidden rounded-3xl border border-stone-200 bg-[#e5e3df] shadow-sm transition-all ${
+        isFullscreen ? 'fixed inset-4 z-[9998] rounded-2xl shadow-2xl' : className
       }`}
     >
       {/* Top-Left Google Maps Floating Card + Layer Switcher */}
@@ -470,7 +535,7 @@ export function TravelMap({
         <div className="flex items-center gap-2 rounded-xl bg-white/95 px-3 py-1.5 shadow-md border border-slate-200/80 text-slate-800 backdrop-blur-sm">
           <MapPin className="h-4 w-4 text-[#ea4335] shrink-0" />
           <span className="text-xs font-bold tracking-tight truncate max-w-[160px] sm:max-w-[240px]">
-            {destination} {selectedDay ? `Â· Hari ${selectedDay}` : ''}
+            {destination} {selectedDay ? `· Hari ${selectedDay}` : ''}
           </span>
           {resolvedStops.length > 0 && (
             <span className="rounded-full bg-[#e8f0fe] px-2 py-0.5 text-[10px] font-bold text-[#1967d2] shrink-0">

@@ -503,6 +503,10 @@ Aturan kerja:
 4. Sebelum memasukkan tempat bernama ke itinerary, gunakan search_places dan salin nama, alamat, koordinat, source_url (Google Maps), rating Google Maps, user_ratings_total, serta source_name ('Google Maps') hasil yang relevan. Gunakan maksimal dua pencarian luas per pesan dan manfaatkan beberapa hasil dari tiap pencarian. Sertakan rating dan jumlah ulasan Google Maps pada setiap tempat wisata atau kuliner.
 5. Jika tanggal berada dalam 15 hari ke depan, gunakan check_weather dan sesuaikan aktivitas. Jika prakiraan tidak tersedia, katakan bahwa cuaca belum dapat dipastikan.
 6. Setelah informasi tujuan cukup, wajib gunakan build_itinerary (sertakan jadwal wisata, opsi makan pagi/siang/malam, dan sewa motor/transport bila diminta). Jangan hanya bertanya balik tanpa membuat itinerary.
+Aturan Variasi & Logika Perjalanan:
+- DILARANG KERAS mengulang tempat makan, kafe, atau restoran yang sama pada hari yang berbeda atau pada waktu makan yang berbeda dalam satu itinerary. Setiap sarapan, makan siang, dan makan malam HARUS bervariasi dengan tempat berbeda (misal: sarapan kafe lokal / bakery, makan siang kuliner khas, makan malam seafood / resto sunset). Manfaatkan hasil search_places yang beragam.
+- Untuk perjalanan kepulauan/bahari (contoh Labuan Bajo): Kelompokkan wisata laut (Pulau Padar, Pulau Komodo, Pink Beach, Manta Point) dalam 1 hari full-day island hopping (menggunakan kapal / speed boat). Hari-hari lainnya di daratan (sewa motor) difokuskan untuk destinasi darat (Gua Batu Cermin, Puncak Waringin, Gua Rangko, Bukit Sylvia, Waterfront Marina, dan kuliner lokal).
+- Susun urutan tempat pada setiap hari secara GEOGRAFIS SEARAH (tidak bolak-balik melintasi wilayah yang sama dalam satu hari) agar rute perjalanan efisien dan peta tidak membentuk garis zigzag bolak-balik.
 7. Jika pengguna meminta perubahan hari tertentu pada itinerary yang sudah ada, gunakan update_itinerary_day; cari tempat lagi bila lokasi berubah.
 8. Susun urutan yang realistis dan beri waktu istirahat/perjalanan. Jika pengguna menanyakan tiket pesawat, sewa motor, atau makan 3x sehari, berikan kisaran estimasi biaya yang membantu di teks jawaban (sebagai perkiraan, bukan harga real-time) dan infokan bahwa rincian biaya lengkap tersedia di tab Expenses/Detail Biaya.
 9. Setelah tool penyimpanan berhasil, beri ringkasan singkat (lokasi sewa motor, estimasi tiket PP, rekomendasi makan) dan tawarkan satu penyesuaian yang relevan.`
@@ -681,6 +685,50 @@ const CURATED_GOOGLE_PLACES = [
     rating: 4.6,
     user_ratings_total: 10800,
   },
+  {
+    name: 'Sisterfields Cafe Seminyak',
+    destination: 'bali',
+    keywords: ['sisterfields', 'cafe seminyak', 'brunch seminyak', 'sarapan bali', 'kopi seminyak'],
+    address: 'Jl. Kayu Cendana No.7, Seminyak, Kec. Kuta Utara, Kabupaten Badung, Bali',
+    category: 'Kafe Brunch & Sarapan Populer',
+    latitude: -8.6859,
+    longitude: 115.1568,
+    rating: 4.6,
+    user_ratings_total: 6800,
+  },
+  {
+    name: 'Bebek Bengil Ubud (Dirty Duck Diner)',
+    destination: 'bali',
+    keywords: ['bebek bengil', 'dirty duck', 'kuliner ubud', 'makan siang ubud', 'bebek krispi'],
+    address: 'Jl. Hanoman, Ubud, Kecamatan Ubud, Kabupaten Gianyar, Bali',
+    category: 'Restoran Bebek Krispi Khas Ubud',
+    latitude: -8.5147,
+    longitude: 115.2657,
+    rating: 4.5,
+    user_ratings_total: 9400,
+  },
+  {
+    name: 'Menega Cafe Jimbaran',
+    destination: 'bali',
+    keywords: ['menega', 'menega cafe', 'seafood jimbaran', 'sunset jimbaran', 'makan malam jimbaran'],
+    address: 'Jl. Four Seasons, Muaya Beach, Jimbaran, Kuta Selatan, Badung, Bali',
+    category: 'Seafood Pantai & Sunset Jimbaran',
+    latitude: -8.7758,
+    longitude: 115.1661,
+    rating: 4.5,
+    user_ratings_total: 12800,
+  },
+  {
+    name: 'Nook Bali Umalas',
+    destination: 'bali',
+    keywords: ['nook', 'nook bali', 'kafe sawah', 'sarapan umalas', 'warung nook'],
+    address: 'Jl. Umalas 1 No.3, Kerobokan Kelod, Kuta Utara, Badung, Bali',
+    category: 'Kafe Alam Pemandangan Sawah',
+    latitude: -8.6659,
+    longitude: 115.1601,
+    rating: 4.6,
+    user_ratings_total: 5900,
+  },
 
   // Labuan Bajo
   {
@@ -771,6 +819,116 @@ const CURATED_GOOGLE_PLACES = [
     rating: 4.5,
     user_ratings_total: 4800,
   },
+  {
+    name: 'Gua Batu Cermin',
+    destination: 'labuan bajo',
+    keywords: ['batu cermin', 'gua batu cermin', 'mirror stone cave', 'fosil karang', 'wisata darat bajo'],
+    address: 'Batu Cermin, Kec. Komodo, Kabupaten Manggarai Barat, NTT',
+    category: 'Gua Alam Fosil Karang & Sinar Cermin',
+    latitude: -8.4682,
+    longitude: 119.8974,
+    rating: 4.5,
+    user_ratings_total: 3800,
+  },
+  {
+    name: 'Bukit Sylvia & Amelia Sea View',
+    destination: 'labuan bajo',
+    keywords: ['bukit sylvia', 'amelia sea view', 'sunset sylvia', 'bukit teletubbies', 'waecicu'],
+    address: 'Jl. Pantai Waecicu, Labuan Bajo, Kec. Komodo, Manggarai Barat, NTT',
+    category: 'Pemandangan Sunset Perbukitan Tepi Laut',
+    latitude: -8.4645,
+    longitude: 119.8723,
+    rating: 4.7,
+    user_ratings_total: 3200,
+  },
+  {
+    name: 'Taman Laut Handayani Seafood Restaurant',
+    destination: 'labuan bajo',
+    keywords: ['taman laut handayani', 'handayani seafood', 'seafood tepi laut', 'makan malam seafood', 'ikan bakar'],
+    address: 'Jl. Soekarno Hatta No.9, Labuan Bajo, Kec. Komodo, Manggarai Barat, NTT',
+    category: 'Restoran Seafood Tepi Laut Pemandangan Dermaga',
+    latitude: -8.4947,
+    longitude: 119.8778,
+    rating: 4.6,
+    user_ratings_total: 3200,
+  },
+  {
+    name: 'Artomoro Restaurant Labuan Bajo',
+    destination: 'labuan bajo',
+    keywords: ['artomoro', 'artomoro restaurant', 'makan siang artomoro', 'ayam bakar bajo', 'kuliner nusantara'],
+    address: 'Jl. Soekarno Hatta, Labuan Bajo, Kec. Komodo, Manggarai Barat, NTT',
+    category: 'Restoran Kuliner Nusantara & Seafood Halal',
+    latitude: -8.4908,
+    longitude: 119.8769,
+    rating: 4.6,
+    user_ratings_total: 2400,
+  },
+  {
+    name: 'Le Bajo Flores Bakery & Cafe',
+    destination: 'labuan bajo',
+    keywords: ['le bajo', 'le bajo flores', 'sarapan le bajo', 'bakery bajo', 'kopi sarapan pagi', 'brunch bajo'],
+    address: 'Jl. Soekarno Hatta, Labuan Bajo, Kec. Komodo, Manggarai Barat, NTT',
+    category: 'Kafe Sarapan Pagi, Roti & Kopi Flores',
+    latitude: -8.4871,
+    longitude: 119.8760,
+    rating: 4.8,
+    user_ratings_total: 2700,
+  },
+  {
+    name: 'Bajo Taco & Sunset Bar',
+    destination: 'labuan bajo',
+    keywords: ['bajo taco', 'tacos bajo', 'sunset bar bajo', 'makan malam taco', 'sunset marina'],
+    address: 'Jl. Soekarno Hatta, Labuan Bajo, Kec. Komodo, Manggarai Barat, NTT',
+    category: 'Kafe Tacos & Sunset View Marina',
+    latitude: -8.4912,
+    longitude: 119.8755,
+    rating: 4.7,
+    user_ratings_total: 1900,
+  },
+  {
+    name: 'Warung Mama Labuan Bajo',
+    destination: 'labuan bajo',
+    keywords: ['warung mama', 'mama bajo', 'prasmanan bajo', 'makan murah halal', 'masakan rumahan bajo', 'makan siang murah'],
+    address: 'Jl. Soekarno Hatta, Labuan Bajo, Kec. Komodo, Manggarai Barat, NTT',
+    category: 'Prasmanan Masakan Rumahan Halal & Murah',
+    latitude: -8.4919,
+    longitude: 119.8761,
+    rating: 4.7,
+    user_ratings_total: 3500,
+  },
+  {
+    name: 'Senja & Kopi Flores',
+    destination: 'labuan bajo',
+    keywords: ['senja kopi', 'senja dan kopi', 'kopi flores', 'kafe kopi bajo', 'kopi sore', 'senja labuan bajo'],
+    address: 'Jl. Trans Flores, Labuan Bajo, Kec. Komodo, Manggarai Barat, NTT',
+    category: 'Kedai Kopi Flores Bajawa & Sunset View',
+    latitude: -8.4905,
+    longitude: 119.8780,
+    rating: 4.7,
+    user_ratings_total: 1600,
+  },
+  {
+    name: 'La Cucina Labuan Bajo',
+    destination: 'labuan bajo',
+    keywords: ['la cucina', 'pizza bajo', 'italian bajo', 'pasta labuan bajo', 'makan malam pizza'],
+    address: 'Jl. Soekarno Hatta, Labuan Bajo, Kec. Komodo, Manggarai Barat, NTT',
+    category: 'Restoran Pizza Tungku Kayu & Pasta Italia',
+    latitude: -8.4917,
+    longitude: 119.8759,
+    rating: 4.6,
+    user_ratings_total: 2300,
+  },
+  {
+    name: 'Cafe In Hit Flores Coffee',
+    destination: 'labuan bajo',
+    keywords: ['cafe in hit', 'sarapan kopi bajo', 'kopi pagi flores', 'breakfast bajo', 'kopi flores pagi'],
+    address: 'Jl. Soekarno Hatta No.7, Labuan Bajo, Kec. Komodo, Manggarai Barat, NTT',
+    category: 'Kedai Kopi Khas Flores & Sarapan Pagi',
+    latitude: -8.4914,
+    longitude: 119.8758,
+    rating: 4.6,
+    user_ratings_total: 1200,
+  },
 
   // Yogyakarta
   {
@@ -839,6 +997,39 @@ const CURATED_GOOGLE_PLACES = [
     rating: 4.6,
     user_ratings_total: 23100,
   },
+  {
+    name: 'Kopi Klotok Pakem Kaliurang',
+    destination: 'yogyakarta',
+    keywords: ['kopi klotok', 'klotok', 'pisang goreng klotok', 'sarapan lodeh', 'kuliner kaliurang', 'sarapan jogja'],
+    address: 'Jl. Kaliurang No.KM.16, Area Sawah, Pakembinangun, Kec. Pakem, Sleman, DIY',
+    category: 'Kuliner Tradisional Sayur Lodeh & Kopi Klotok',
+    latitude: -7.6625,
+    longitude: 110.4215,
+    rating: 4.7,
+    user_ratings_total: 42100,
+  },
+  {
+    name: 'The House of Raminten Kotabaru',
+    destination: 'yogyakarta',
+    keywords: ['raminten', 'house of raminten', 'kuliner malam jogja', 'wedang rempah', 'makan malam jogja'],
+    address: 'Jl. Faridan M. Noto No.7, Kotabaru, Kec. Gondokusuman, Kota Yogyakarta',
+    category: 'Restoran Budaya Tradisional Jawa & Angkringan Unik',
+    latitude: -7.7845,
+    longitude: 110.3705,
+    rating: 4.5,
+    user_ratings_total: 31400,
+  },
+  {
+    name: 'Soto Ayam Kampung Pak Dalbe',
+    destination: 'yogyakarta',
+    keywords: ['soto dalbe', 'pak dalbe', 'sarapan soto', 'sarapan pagi jogja', 'soto ayam jogja'],
+    address: 'Jl. Jend. Sudirman, Terban, Kec. Gondokusuman, Kota Yogyakarta',
+    category: 'Kuliner Sarapan Pagi Soto Ayam Legendaris',
+    latitude: -7.7831,
+    longitude: 110.3772,
+    rating: 4.6,
+    user_ratings_total: 5200,
+  },
 
   // Bandung
   {
@@ -884,6 +1075,39 @@ const CURATED_GOOGLE_PLACES = [
     longitude: 107.6375,
     rating: 4.6,
     user_ratings_total: 29400,
+  },
+  {
+    name: 'Warung Kopi Purnama Braga',
+    destination: 'bandung',
+    keywords: ['kopi purnama', 'purnama', 'sarapan braga', 'roti srikaya', 'kopi legendaris bandung', 'sarapan bandung'],
+    address: 'Jl. Alkateri No.22, Braga, Kec. Sumur Bandung, Kota Bandung, Jawa Barat',
+    category: 'Kedai Kopi & Roti Srikaya Legendaris Sejak 1930',
+    latitude: -6.9218,
+    longitude: 107.6074,
+    rating: 4.6,
+    user_ratings_total: 9200,
+  },
+  {
+    name: 'Dusun Bambu Lembang',
+    destination: 'bandung',
+    keywords: ['dusun bambu', 'kuliner lembang', 'saung danau', 'makan siang lembang', 'kuliner sunda'],
+    address: 'Jl. Kolonel Masturi KM.11, Kertawangi, Kec. Cisarua, Kabupaten Bandung Barat',
+    category: 'Ekowisata & Restoran Masakan Sunda Tepi Danau',
+    latitude: -6.7928,
+    longitude: 107.5794,
+    rating: 4.5,
+    user_ratings_total: 34800,
+  },
+  {
+    name: 'Bumi Aki Heritage Dago',
+    destination: 'bandung',
+    keywords: ['bumi aki', 'dago', 'makan malam bandung', 'kuliner dago', 'nasi liwet sunda'],
+    address: 'Jl. Ir. H. Juanda No.175, Dago, Kecamatan Coblong, Kota Bandung',
+    category: 'Restoran Masakan Sunda Heritage & Nasi Liwet',
+    latitude: -6.8778,
+    longitude: 107.6186,
+    rating: 4.7,
+    user_ratings_total: 5400,
   },
 
   // Lombok
@@ -941,18 +1165,39 @@ function matchCuratedPlaces(query, destination, limit) {
 
   const scored = CURATED_GOOGLE_PLACES.map((p) => {
     let score = 0
-    if (normDest.includes(p.destination) || p.destination.includes(normDest)) score += 20
+    const destMatch = normDest.includes(p.destination) || p.destination.includes(normDest)
+    if (!destMatch) return { place: p, score: -1 }
+
+    score += 20 // Base destination match
+
     for (const kw of p.keywords) {
-      if (normQuery.includes(kw)) score += 30
-      if (kw.includes(normQuery)) score += 15
+      if (normQuery.includes(kw)) score += 35
+      if (kw.includes(normQuery)) score += 20
     }
-    const words = normQuery.split(/\s+/)
+    const words = normQuery.split(/\s+/).filter((w) => w.length > 2)
     for (const w of words) {
-      if (w.length > 2 && p.keywords.some((kw) => kw.includes(w))) score += 5
+      if (p.keywords.some((kw) => kw.includes(w)) || p.category.toLowerCase().includes(w) || p.name.toLowerCase().includes(w)) {
+        score += 10
+      }
     }
+
+    // Category affinity boosts
+    if (/sarapan|breakfast|pagi|kopi|cafe|kafe/i.test(normQuery) && /sarapan|breakfast|kopi|kafe|cafe|bakery/i.test(p.category + ' ' + p.keywords.join(' '))) {
+      score += 25
+    }
+    if (/siang|makan|lunch|resto|restoran|kuliner/i.test(normQuery) && /kuliner|restoran|seafood|makan|resto|warung/i.test(p.category + ' ' + p.keywords.join(' '))) {
+      score += 25
+    }
+    if (/malam|dinner|seafood|sunset/i.test(normQuery) && /malam|dinner|seafood|ikan bakar|sunset/i.test(p.category + ' ' + p.keywords.join(' '))) {
+      score += 25
+    }
+    if (/wisata|pantai|alam|candi|gua|trekking|island|hopping|snorkeling/i.test(normQuery) && !/kuliner|restoran|kafe|warung/i.test(p.category)) {
+      score += 20
+    }
+
     return { place: p, score }
   })
-    .filter((entry) => entry.score >= 20)
+    .filter((entry) => entry.score >= 25)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
 

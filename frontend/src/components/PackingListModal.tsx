@@ -156,7 +156,7 @@ export function PackingListModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="packing-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 p-3 sm:p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-stone-900/60 p-3 sm:p-4 backdrop-blur-sm"
     >
       <div className="animate-rise relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl">
         {/* Header */}

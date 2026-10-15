@@ -1435,7 +1435,7 @@ export default function App() {
 
       {showTrips && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          className="fixed inset-0 z-[9999] flex items-end justify-center bg-stone-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Perjalanan saya"

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import {
   DollarSign,
   PieChart,
@@ -370,7 +370,7 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       icon: Utensils,
       color: 'bg-teal-500',
       textColor: 'text-teal-800',
-      detail: `3x makan/hari + kopi (${effectiveDays * 3}x makan) Ã— ${formatIdr(mealPerDayPerPerson)}/hari/org`,
+      detail: `3x makan/hari + kopi (${effectiveDays * 3}x makan) × ${formatIdr(mealPerDayPerPerson)}/hari/org`,
       subItems: [
         { label: 'Sarapan Pagi', value: `${formatIdr(breakfastCost)} / sekali makan` },
         { label: 'Makan Siang', value: `${formatIdr(lunchCost)} / sekali makan` },
@@ -384,7 +384,7 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       icon: Bike,
       color: 'bg-cyan-700',
       textColor: 'text-cyan-700',
-      detail: `${effectiveDays} hari Ã— ${motorsNeeded} unit motor (${formatIdr(motorPerDay)}/hr + BBM ${formatIdr(fuelPerDay)}/hr)`,
+      detail: `${effectiveDays} hari × ${motorsNeeded} unit motor (${formatIdr(motorPerDay)}/hr + BBM ${formatIdr(fuelPerDay)}/hr)`,
       subItems: [
         { label: 'Sewa Motor Matic (2helm + jas hujan)', value: `${formatIdr(motorPerDay)} / hari` },
         { label: 'Estimasi BBM (Pertamax/Pertalite)', value: `${formatIdr(fuelPerDay)} / hari` },
@@ -458,7 +458,7 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
             {formatIdr(grandTotal)}
           </div>
           <p className="mt-1 text-xs text-stone-500">
-            {pax > 1 ? `${formatIdr(perPersonTotal)} / orang Â· ` : ''}
+            {pax > 1 ? `${formatIdr(perPersonTotal)} / orang · ` : ''}
             {effectiveDays} hari {effectiveNights} malam di {destination}
           </p>
         </div>
@@ -612,7 +612,7 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
                       <div className="min-w-0">
                         <div className="font-medium text-stone-800 truncate">{row.title}</div>
                         <div className="text-[11px] text-stone-500">
-                          <span className="text-stone-600 font-medium">{row.typeLabel}</span> Â· {row.note}
+                          <span className="text-stone-600 font-medium">{row.typeLabel}</span> · {row.note}
                         </div>
                       </div>
                     </div>
