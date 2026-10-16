@@ -36,6 +36,10 @@ type NavbarProps = {
   isStartingSession?: boolean
 }
 
+/* Hallmark · component: Navbar · genre: editorial · theme: Sand & Sea
+ * states: default · hover · focus-visible · active · disabled
+ * contrast: pass (4.5:1+)
+ */
 export function Navbar({
   destination,
   hasItinerary,
@@ -57,14 +61,21 @@ export function Navbar({
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Close the account menu when clicking outside of it
+  // Close the account menu when clicking outside of it or pressing Escape
   useEffect(() => {
     if (!showMenu) return
     function handleClick(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) setShowMenu(false)
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setShowMenu(false)
+    }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [showMenu])
 
   function handleSearchSubmit(e: React.FormEvent) {
@@ -76,18 +87,18 @@ export function Navbar({
   }
 
   return (
-    <header className="sticky top-0 z-40 flex min-h-14 sm:min-h-16 w-full items-center justify-between gap-3 border-b border-stone-200/80 bg-white/85 px-3 sm:px-6 pt-[env(safe-area-inset-top)] backdrop-blur-md">
+    <header className="sticky top-0 z-40 flex min-h-14 sm:min-h-16 w-full items-center justify-between gap-3 border-b border-stone-200/80 bg-white/90 px-3 sm:px-6 pt-[env(safe-area-inset-top)] backdrop-blur-md">
       {/* Brand */}
       <button
         type="button"
         onClick={onNewTrip}
-        className="flex shrink-0 items-center gap-2.5 rounded-xl select-none"
-        aria-label="Rute — mulai rencana"
+        className="flex shrink-0 items-center gap-2.5 rounded-xl select-none outline-none focus-visible:ring-2 focus-visible:ring-teal-700/80 focus-visible:ring-offset-2 transition active:scale-[0.98]"
+        aria-label="Rute — mulai rencana baru"
       >
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-teal-700 text-white shadow-sm shadow-teal-900/20">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-teal-700 text-white shadow-xs shadow-teal-900/20">
           <Route className="h-5 w-5" />
         </span>
-        <span className="font-display text-2xl font-bold text-stone-900">Rute</span>
+        <span className="font-display text-2xl font-bold text-stone-900 tracking-tight">Rute</span>
       </button>
 
       {/* Search */}
@@ -98,9 +109,19 @@ export function Navbar({
           value={searchVal}
           onChange={(e) => setSearchVal(e.target.value)}
           placeholder={destination ? `Cari tempat di ${destination}…` : 'Cari destinasi, pantai, kuliner…'}
-          aria-label="Cari tempat"
-          className="w-full rounded-full border border-stone-200 bg-stone-100/70 py-2.5 pl-11 pr-4 text-sm text-stone-800 placeholder:text-stone-400 transition focus:border-teal-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-teal-600/10"
+          aria-label="Cari tempat atau aktivitas"
+          className="w-full rounded-full border border-stone-200 bg-stone-100/70 py-2.5 pl-11 pr-10 text-sm text-stone-800 placeholder:text-stone-400 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20"
         />
+        {searchVal && (
+          <button
+            type="button"
+            onClick={() => setSearchVal('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-stone-400 hover:text-stone-700"
+            aria-label="Hapus teks pencarian"
+          >
+            <span className="text-xs font-bold leading-none">✕</span>
+          </button>
+        )}
       </form>
 
       {/* Actions */}

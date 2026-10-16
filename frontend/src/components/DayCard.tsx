@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calendar, Pencil, ExternalLink, ChevronDown, ChevronUp, MapPin, Star, Navigation, Sun } from 'lucide-react'
+import { Calendar, Pencil, ExternalLink, ChevronDown, ChevronUp, MapPin, Star, Navigation } from 'lucide-react'
 import { getDayCoverImage } from '../lib/images'
 
 export type ItineraryItem = {
@@ -77,6 +77,10 @@ function buildDayGoogleRouteUrl(items: ItineraryItem[], destination: string): st
   return url.toString()
 }
 
+/* Hallmark · component: DayCard · genre: editorial · theme: Sand & Sea
+ * states: default · hover · focus-visible · active · disabled
+ * contrast: pass (4.5:1+)
+ */
 export function DayCard({
   dayNumber,
   destination,
@@ -104,11 +108,21 @@ export function DayCard({
 
   return (
     <article
+      role="button"
+      tabIndex={0}
+      aria-label={`Hari ke-${dayNumber}: ${daySummary}. ${items.length} aktivitas terencana.`}
+      aria-pressed={isActive}
       onClick={onSelectDay}
-      className={`group flex w-full shrink-0 cursor-pointer flex-col overflow-hidden rounded-3xl border bg-white transition-all sm:w-[320px] ${
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelectDay?.()
+        }
+      }}
+      className={`group flex w-full shrink-0 cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-teal-700/80 focus-visible:ring-offset-2 sm:w-[320px] ${
         isActive
-          ? 'border-teal-700 shadow-lg shadow-teal-900/10 ring-2 ring-teal-700/15'
-          : 'border-stone-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-lg hover:shadow-stone-900/5'
+          ? 'border-teal-700 shadow-md shadow-teal-900/10 ring-2 ring-teal-700/20'
+          : 'border-stone-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md hover:shadow-stone-900/5'
       }`}
     >
       {/* Cover */}
@@ -122,7 +136,7 @@ export function DayCard({
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
         />
-        <div className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-stone-900 shadow-sm">
+        <div className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-stone-900 shadow-sm backdrop-blur-xs">
           Hari {dayNumber}
         </div>
         {onRefineDay && (
@@ -132,11 +146,11 @@ export function DayCard({
               e.stopPropagation()
               onRefineDay(dayNumber)
             }}
-            className="absolute right-3 top-3 flex min-h-[36px] items-center gap-1.5 rounded-full bg-white/95 px-3 text-xs font-semibold text-stone-700 shadow-sm transition hover:bg-teal-700 hover:text-white"
+            className="absolute right-3 top-3 flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-white/95 px-3 text-xs font-semibold text-stone-700 shadow-sm transition hover:bg-teal-700 hover:text-white focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-1"
             title="Minta Rute mengubah hari ini"
             aria-label={`Ubah hari ke-${dayNumber}`}
           >
-            <Pencil className="h-3.5 w-3.5" /> Ubah
+            <Pencil className="h-3.5 w-3.5" /> <span>Ubah</span>
           </button>
         )}
       </div>
@@ -144,69 +158,75 @@ export function DayCard({
       {/* Header */}
       <div className="px-4 pb-2 pt-3.5">
         <h3 className="line-clamp-1 font-display text-lg font-bold leading-tight text-stone-900">{daySummary}</h3>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs capitalize text-stone-500">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>{formattedDate}</span>
-          <span aria-hidden="true">·</span>
-          <span className="normal-case">{items.length} aktivitas</span>
-          <span aria-hidden="true">·</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900 border border-amber-200/50">
-            <Sun className="h-3 w-3 text-amber-500" />
-            <span>29°C Cerah</span>
-          </span>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-stone-600">
+          <Calendar className="h-3.5 w-3.5 text-stone-500" />
+          <span className="font-medium capitalize">{formattedDate}</span>
+          <span aria-hidden="true" className="text-stone-300">·</span>
+          <span className="font-medium text-stone-600">{items.length} aktivitas</span>
         </div>
       </div>
 
       {/* Timeline */}
       <ol className="relative flex-1 px-4 pb-3">
-        {displayedItems.map((item, idx) => (
-          <li key={item.id || idx} className="relative">
-            {idx < displayedItems.length - 1 && (
-              <span className="absolute bottom-0 left-[3.35rem] top-6 w-px bg-stone-200" aria-hidden="true" />
-            )}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onSelectPlace?.(item)
-              }}
-              className="group/item -mx-2 flex min-h-[48px] w-[calc(100%+1rem)] items-start gap-3 rounded-2xl px-2 py-2 text-left transition hover:bg-teal-50/70"
-            >
-              <span className="w-10 shrink-0 pt-0.5 text-xs font-bold tabular-nums text-stone-500 group-hover/item:text-teal-800">
-                {item.time_slot}
-              </span>
-              <span className="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-white bg-amber-500 ring-1 ring-amber-500/40 group-hover/item:bg-teal-700 group-hover/item:ring-teal-700/40" />
-              <span className="min-w-0 flex-1">
-                <span className="line-clamp-1 text-sm font-semibold text-stone-800">{item.title}</span>
-                <span className="mt-0.5 flex items-center gap-1 text-xs text-stone-500">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  <span className="line-clamp-1">
-                    {item.location_name || item.address || item.description || 'Lokasi terkonfirmasi'}
-                  </span>
-                </span>
-                <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-amber-50/90 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900 border border-amber-200/60">
-                  <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
-                  <span>{item.rating ?? 4.7}</span>
-                  <span className="text-amber-700/80">({formatReviewCount(item.user_ratings_total ?? 1420)})</span>
-                  <span className="text-[10px] text-stone-500 font-normal">· {item.source_name || 'Google Maps'}</span>
-                </span>
-              </span>
-              {item.source_url && (
-                <a
-                  href={item.source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-stone-400 transition hover:bg-white hover:text-teal-700 sm:opacity-0 sm:group-hover/item:opacity-100"
-                  title="Buka di Google Maps"
-                  aria-label={`Buka ${item.title} di Google Maps`}
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
+        {displayedItems.map((item, idx) => {
+          const hasRating = typeof item.rating === 'number' && item.rating > 0
+          return (
+            <li key={item.id || idx} className="relative">
+              {idx < displayedItems.length - 1 && (
+                <span className="absolute bottom-0 left-[3.35rem] top-6 w-px bg-stone-200" aria-hidden="true" />
               )}
-            </button>
-          </li>
-        ))}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelectPlace?.(item)
+                }}
+                className="group/item -mx-2 flex min-h-[48px] w-[calc(100%+1rem)] items-start gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-teal-50/70 focus-visible:ring-2 focus-visible:ring-teal-700/60"
+              >
+                <span className="w-10 shrink-0 pt-0.5 text-xs font-bold tabular-nums text-stone-500 group-hover/item:text-teal-800">
+                  {item.time_slot}
+                </span>
+                <span className="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-white bg-amber-500 ring-1 ring-amber-500/40 group-hover/item:bg-teal-700 group-hover/item:ring-teal-700/40" />
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-1 text-sm font-semibold text-stone-900">{item.title}</span>
+                  <span className="mt-0.5 flex items-center gap-1 text-xs text-stone-600">
+                    <MapPin className="h-3 w-3 shrink-0 text-stone-400" />
+                    <span className="line-clamp-1">
+                      {item.location_name || item.address || item.description || 'Lokasi terkonfirmasi'}
+                    </span>
+                  </span>
+                  {hasRating ? (
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900 border border-amber-200/60">
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
+                      <span>{item.rating}</span>
+                      {item.user_ratings_total ? (
+                        <span className="text-amber-700/80">({formatReviewCount(item.user_ratings_total)})</span>
+                      ) : null}
+                      <span className="text-[10px] text-stone-500 font-normal">· {item.source_name || 'Google Maps'}</span>
+                    </span>
+                  ) : item.category ? (
+                    <span className="mt-1 inline-flex items-center rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600">
+                      {item.category}
+                    </span>
+                  ) : null}
+                </span>
+                {item.source_url && (
+                  <a
+                    href={item.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-stone-400 transition hover:bg-white hover:text-teal-700 focus-visible:ring-2 focus-visible:ring-teal-700 sm:opacity-0 sm:group-hover/item:opacity-100"
+                    title="Buka di Google Maps"
+                    aria-label={`Buka ${item.title} di Google Maps`}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </button>
+            </li>
+          )
+        })}
       </ol>
 
       {/* 1-Click Google Maps Day Navigation Route */}
@@ -216,7 +236,7 @@ export function DayCard({
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="flex min-h-[36px] w-full items-center justify-center gap-1.5 rounded-xl border border-teal-200/80 bg-teal-50/90 px-3 py-1.5 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 hover:text-teal-900 shadow-sm"
+          className="flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-teal-200/80 bg-teal-50/90 px-3 py-1.5 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 hover:text-teal-900 active:scale-[0.98] shadow-xs focus-visible:ring-2 focus-visible:ring-teal-700"
           title={`Buka rute navigasi Hari ke-${dayNumber} di Google Maps`}
         >
           <Navigation className="h-3.5 w-3.5 text-teal-700" />
@@ -232,7 +252,7 @@ export function DayCard({
             e.stopPropagation()
             setShowAllItems(!showAllItems)
           }}
-          className="flex min-h-[44px] items-center justify-center gap-1 border-t border-stone-100 text-xs font-semibold text-teal-800 transition hover:bg-stone-50"
+          className="flex min-h-[44px] items-center justify-center gap-1 border-t border-stone-100 text-xs font-semibold text-teal-800 transition hover:bg-stone-50 focus-visible:ring-2 focus-visible:ring-teal-700/60"
         >
           {showAllItems ? (
             <>

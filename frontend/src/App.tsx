@@ -26,6 +26,9 @@ import {
   Download,
   Share2,
   CheckSquare,
+  Sunset,
+  Bike,
+  Luggage,
 } from 'lucide-react'
 import { Markdown } from './components/Markdown'
 import { createIcs } from './lib/calendar'
@@ -937,9 +940,9 @@ export default function App() {
                   {message.role === 'model' && !message.content ? (
                     <span className="flex items-center gap-2 text-stone-500">
                       <span className="flex gap-1" aria-hidden="true">
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600 [animation-delay:-0.3s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600 [animation-delay:-0.15s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600" />
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600 [animation-delay:-0.3s]" />
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600 [animation-delay:-0.15s]" />
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600" />
                       </span>
                       {chatProgress || 'Menyusun rute terbaik…'}
                     </span>
@@ -1087,24 +1090,25 @@ export default function App() {
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    '🍽️ Rekomendasi kuliner lokal halal terpopuler',
-                    '🛵 Info sewa motor harian & rute paling hemat',
-                    '🌅 Tambahkan spot sunset & foto estetik terbaik',
-                    '🎒 Checklist barang bawaan traveler',
-                  ].map((chip) => (
+                    { text: 'Rekomendasi kuliner lokal autentik & halal', Icon: UtensilsCrossed, isPacking: false },
+                    { text: 'Info sewa motor harian & rute hemat', Icon: Bike, isPacking: false },
+                    { text: 'Spot sunset & panorama terbaik', Icon: Sunset, isPacking: false },
+                    { text: 'Checklist barang bawaan traveler', Icon: Luggage, isPacking: true },
+                  ].map(({ text, Icon, isPacking }) => (
                     <button
-                      key={chip}
+                      key={text}
                       type="button"
                       onClick={() => {
-                        if (chip.includes('Checklist')) {
+                        if (isPacking) {
                           setIsPackingModalOpen(true)
                         } else {
-                          void sendMessage(chip)
+                          void sendMessage(text)
                         }
                       }}
-                      className="rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 transition hover:border-teal-600/50 hover:bg-teal-50 hover:text-teal-900 active:scale-95 shadow-sm"
+                      className="flex items-center gap-1.5 rounded-full border border-stone-200/90 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 transition hover:border-teal-700/40 hover:bg-teal-50/70 hover:text-teal-900 active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-teal-700 shadow-xs"
                     >
-                      {chip}
+                      <Icon className="h-3.5 w-3.5 text-teal-700" />
+                      <span>{text}</span>
                     </button>
                   ))}
                 </div>
@@ -1127,7 +1131,7 @@ export default function App() {
             )}
             <form
               onSubmit={handleSubmit}
-              className="flex items-end gap-2 rounded-3xl border border-stone-200 bg-stone-50 p-1.5 transition focus-within:border-teal-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-teal-600/10"
+              className="flex items-end gap-2 rounded-2xl border border-stone-200 bg-stone-50/80 p-1.5 transition focus-within:border-teal-700 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-700/20"
             >
               <textarea
                 ref={inputRef}

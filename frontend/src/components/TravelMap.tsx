@@ -374,13 +374,30 @@ export function TravelMap({
         `${cleanPlaceQuery(stop.title, stop.location_name)}, ${destination}`,
       )}`
       const gmapsCoordUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`
-      const rating = stop.rating ?? 4.7
+      const hasRating = typeof stop.rating === 'number' && stop.rating > 0
       const reviews = stop.user_ratings_total
         ? stop.user_ratings_total >= 1000
           ? `${(stop.user_ratings_total / 1000).toFixed(1)}rb`
           : stop.user_ratings_total
-        : '1.2rb'
+        : null
       const source = stop.source_name || 'Google Maps'
+
+      const ratingSnippet = hasRating
+        ? `
+          <div style="display:flex; align-items:center; gap:4px; margin:4px 0 6px 0; font-size:11px; font-weight:600; color:#b45309;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>${stop.rating}</span>
+            ${reviews ? `<span style="color:#78716c; font-weight:normal;">(${reviews} ulasan)</span>` : ''}
+            <span style="color:#0f766e; font-size:10px; font-weight:600;">· ${escapeHtml(source)}</span>
+          </div>
+        `
+        : `
+          <div style="display:flex; align-items:center; gap:4px; margin:4px 0 6px 0; font-size:11px; color:#57534e;">
+            <span style="color:#0f766e; font-size:11px; font-weight:600;">Lokasi Terverifikasi</span>
+            <span style="color:#a8a29e;">·</span>
+            <span style="font-size:10px; color:#78716c;">${escapeHtml(source)}</span>
+          </div>
+        `
 
       const popupHtml = `
         <div class="gmaps-popup-card">
@@ -388,11 +405,7 @@ export function TravelMap({
             Hari ${stop.day_number} · Titik #${stop.dayOrder}
           </div>
           <div class="gmaps-popup-title">${escapeHtml(stop.title)}</div>
-          <div style="display:flex; align-items:center; gap:4px; margin:4px 0 6px 0; font-size:11px; font-weight:600; color:#b45309;">
-            <span>⭐ ${rating}</span>
-            <span style="color:#78716c; font-weight:normal;">(${reviews} ulasan)</span>
-            <span style="color:#0f766e; font-size:10px; font-weight:600;">· ${escapeHtml(source)}</span>
-          </div>
+          ${ratingSnippet}
           ${stop.location_name && stop.location_name !== stop.title ? `<div class="gmaps-popup-subtitle">${escapeHtml(stop.location_name)}</div>` : ''}
           ${stop.address ? `<div class="gmaps-popup-address">${escapeHtml(stop.address)}</div>` : ''}
           <div class="gmaps-popup-actions">

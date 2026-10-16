@@ -346,7 +346,7 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       icon: Plane,
       color: 'bg-teal-700',
       textColor: 'text-teal-700',
-      detail: `${pax} orang Ã— ${formatIdr(flightPerPerson)} (PP) + transfer bandara ${formatIdr(airportTransferTotal)}`,
+      detail: `${pax} orang × ${formatIdr(flightPerPerson)} (PP) + transfer bandara ${formatIdr(airportTransferTotal)}`,
       subItems: [
         { label: `Tiket Pulang-Pergi (${destination})`, value: `${formatIdr(flightPerPerson)} / org` },
         { label: 'Transport Bandara PP', value: formatIdr(airportTransferTotal) },
@@ -358,7 +358,7 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
       icon: BedDouble,
       color: 'bg-teal-600',
       textColor: 'text-teal-700',
-      detail: `${effectiveNights} malam Ã— ${roomsNeeded} kamar Ã— ${formatIdr(hotelPerNight)}/malam`,
+      detail: `${effectiveNights} malam × ${roomsNeeded} kamar × ${formatIdr(hotelPerNight)}/malam`,
       subItems: [
         { label: `Tarif Kamar (${tierLabel})`, value: `${formatIdr(hotelPerNight)} / malam` },
         { label: `Durasi Menginap`, value: `${effectiveNights} malam (${effectiveDays} hari)` },
@@ -408,18 +408,20 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
   return (
     <div className="space-y-6 pb-20 max-w-4xl mx-auto">
       {/* Interactive Controls Bar: Budget Tier + Pax Count */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-3.5">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-stone-200/90 bg-white p-3.5 shadow-xs">
+        <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Gaya budget perjalanan">
           <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 mr-1.5">Gaya Budget:</span>
           {(['budget', 'standard', 'comfort'] as BudgetTier[]).map((t) => (
             <button
               key={t}
               type="button"
+              role="radio"
+              aria-checked={tier === t}
               onClick={() => setTier(t)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+              className={`min-h-[38px] rounded-xl px-3 py-1.5 text-xs font-semibold transition active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-teal-700/80 focus-visible:ring-offset-1 ${
                 tier === t
-                  ? 'bg-teal-700 text-white shadow-sm'
-                  : 'bg-white text-stone-600 hover:bg-stone-100'
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200/70'
               }`}
             >
               {TIER_MULTIPLIER[t].label}
@@ -429,15 +431,16 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <Users className="h-4 w-4 text-teal-700" />
-          <span className="text-xs font-medium text-stone-600">Peserta:</span>
-          <div className="flex items-center rounded-xl border border-stone-200 bg-white p-0.5">
+          <span className="text-xs font-semibold text-stone-700">Peserta:</span>
+          <div className="flex items-center rounded-xl border border-stone-200 bg-stone-50 p-0.5" role="group" aria-label="Pilih jumlah peserta">
             {[1, 2, 4].map((count) => (
               <button
                 key={count}
                 type="button"
+                aria-pressed={pax === count}
                 onClick={() => setPax(count)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  pax === count ? 'bg-teal-700 text-white' : 'text-stone-500 hover:text-stone-900'
+                className={`min-h-[34px] rounded-lg px-2.5 py-1 text-xs font-bold transition active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-teal-700/80 ${
+                  pax === count ? 'bg-teal-700 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
                 }`}
               >
                 {count} Org
@@ -449,42 +452,46 @@ export function ExpensesView({ destination, items, dayCount }: ExpensesViewProps
 
       {/* Top Overview Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5 shadow-sm">
-          <div className="flex items-center justify-between text-xs font-semibold text-stone-500 uppercase tracking-wider">
+        <div className="rounded-2xl border border-teal-800/20 bg-teal-900/[0.03] p-4 sm:p-5 shadow-xs">
+          <div className="flex items-center justify-between text-xs font-semibold text-teal-900 uppercase tracking-wider">
             <span>Total Estimasi ({pax} Org)</span>
-            <DollarSign className="h-4 w-4 text-teal-700" />
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-teal-100 text-teal-800">
+              <DollarSign className="h-4 w-4" />
+            </span>
           </div>
-          <div className="mt-2.5 text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
+          <div className="mt-2.5 font-display text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight">
             {formatIdr(grandTotal)}
           </div>
-          <p className="mt-1 text-xs text-stone-500">
+          <p className="mt-1 text-xs text-stone-600 font-medium">
             {pax > 1 ? `${formatIdr(perPersonTotal)} / orang · ` : ''}
             {effectiveDays} hari {effectiveNights} malam di {destination}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5 shadow-sm">
+        <div className="rounded-2xl border border-stone-200/90 bg-white p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs font-semibold text-stone-500 uppercase tracking-wider">
-            <span>Biaya Harian (Di Lokasi)</span>
-            <PieChart className="h-4 w-4 text-teal-700" />
+            <span>Biaya Harian di Lokasi</span>
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-stone-100 text-stone-700">
+              <PieChart className="h-4 w-4" />
+            </span>
           </div>
-          <div className="mt-2.5 text-xl sm:text-2xl font-bold text-teal-700 tracking-tight">
+          <div className="mt-2.5 font-display text-2xl sm:text-3xl font-bold text-teal-800 tracking-tight">
             {formatIdr(Math.round((grandTotal - totalFlight) / effectiveDays))}
           </div>
-          <p className="mt-1 text-xs text-stone-500">
-            Per hari di luar tiket PP (Rata-rata all-in: {formatIdr(dailyAverage)}/hr)
+          <p className="mt-1 text-xs text-stone-600 font-medium">
+            Per hari di luar tiket PP (All-in: {formatIdr(dailyAverage)}/hr)
           </p>
         </div>
 
-        <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5 shadow-sm">
+        <div className="rounded-2xl border border-stone-200/90 bg-white p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs font-semibold text-stone-500 uppercase tracking-wider">
             <span>Mode Rencana</span>
-            <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-700">
+            <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-800 border border-teal-200/60">
               {tierBadge}
             </span>
           </div>
-          <div className="mt-2.5 text-lg sm:text-xl font-bold text-stone-800">{tierLabel}</div>
-          <p className="mt-1 text-xs text-stone-500">{tierDesc}</p>
+          <div className="mt-2.5 font-display text-lg sm:text-xl font-bold text-stone-900">{tierLabel}</div>
+          <p className="mt-1 text-xs text-stone-600">{tierDesc}</p>
         </div>
       </div>
 
