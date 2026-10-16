@@ -119,7 +119,7 @@ export function DayCard({
           onSelectDay?.()
         }
       }}
-      className={`group flex w-full shrink-0 cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-teal-700/80 focus-visible:ring-offset-2 sm:w-[320px] ${
+      className={`group flex w-full cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-teal-700/80 focus-visible:ring-offset-2 ${
         isActive
           ? 'border-teal-700 shadow-md shadow-teal-900/10 ring-2 ring-teal-700/20'
           : 'border-stone-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md hover:shadow-stone-900/5'
@@ -157,7 +157,7 @@ export function DayCard({
 
       {/* Header */}
       <div className="px-4 pb-2 pt-3.5">
-        <h3 className="line-clamp-1 font-display text-lg font-bold leading-tight text-stone-900">{daySummary}</h3>
+        <h3 className="line-clamp-2 font-display text-lg font-bold leading-snug text-stone-900 min-h-[2.5rem]">{daySummary}</h3>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-stone-600">
           <Calendar className="h-3.5 w-3.5 text-stone-500" />
           <span className="font-medium capitalize">{formattedDate}</span>

@@ -88,7 +88,7 @@ function cleanPlaceQuery(title: string, locationName: string | null): string {
   const base = (locationName || title || '')
     .replace(/^(kunjungan ke|mengunjungi|wisata ke|explore|menjelajahi|makan siang di|makan malam di|sarapan di|check-in di|check in di|transfer ke|perjalanan ke|snorkeling di|trekking di|sunset di|sunrise di)\s+/i, '')
     .replace(/\s*\([^)]*\)\s*/g, ' ')
-    .split(/\s+(?:&|dan|serta|-|â€“|\/)\s+/i)[0]
+    .split(/\s+(?:&|dan|serta|-|–|—|\/)\s+/i)[0]
     .trim()
   return base || title
 }

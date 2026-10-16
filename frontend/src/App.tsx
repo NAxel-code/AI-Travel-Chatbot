@@ -214,7 +214,7 @@ function formatRangeDates(start?: string, end?: string): string {
     const e = new Date(`${end}T00:00:00Z`)
     const monthFormatter = new Intl.DateTimeFormat('id-ID', { month: 'short', timeZone: 'UTC' })
     const dayCount = calculateDayCount(start, end)
-    return `${dayCount} Hari â€” ${s.getUTCDate()} ${monthFormatter.format(s)} - ${e.getUTCDate()} ${monthFormatter.format(e)}`
+    return `${dayCount} Hari · ${s.getUTCDate()} ${monthFormatter.format(s)} – ${e.getUTCDate()} ${monthFormatter.format(e)}`
   } catch {
     return `${start} - ${end}`
   }
@@ -394,7 +394,7 @@ export default function App() {
     setInput('')
     setPageError(null)
     setLastFailedMessage(null)
-    setChatProgress('Menghubungkan ke perencanaâ€¦')
+    setChatProgress('Menghubungkan ke perencana...')
     setIsLoading(true)
     setMessages((current) => [...current, { role: 'user', content: cleanMessage }, { role: 'model', content: '' }])
 
@@ -1059,26 +1059,6 @@ export default function App() {
                     </button>
                   )}
                 </div>
-
-                {/* Secondary Navigation to Workspace Tabs (Mobile & Quick-switch) */}
-                <div className="pt-2 border-t border-teal-600/15">
-                  <p className="mb-2 text-[11px] font-semibold text-stone-500">
-                    Buka menu interaktif di aplikasi:
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {WORKSPACE_TABS.map(([tab, label, Icon]) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setActiveTab(tab)}
-                        className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.97]"
-                      >
-                        <Icon className="h-3.5 w-3.5 text-teal-700" />
-                        <span>{label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
@@ -1191,12 +1171,23 @@ export default function App() {
                   <ArrowLeft className="h-4 w-4" />
                 </button>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
-                    {itinerary ? 'Itinerary tersimpan' : hasAskedAi ? 'Draf rencana' : 'Rencana baru'}
+                  <div className="flex items-center gap-2">
+                    <h1 className="truncate font-display text-2xl font-bold text-stone-900 sm:text-3xl">
+                      {itinerary?.destination || (hasAskedAi ? inferredDestination : 'Ke mana kita pergi?')}
+                    </h1>
+                    {itinerary && (
+                      <span className="hidden sm:inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                        Tersimpan
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-stone-500">
+                    {itinerary
+                      ? `${sortedDays.length} hari eksplorasi · Jadwal terpadu`
+                      : hasAskedAi
+                        ? 'Draf rencana dari asisten AI'
+                        : 'Mulai rancang liburan impian'}
                   </p>
-                  <h1 className="truncate font-display text-2xl font-bold text-stone-900 sm:text-3xl">
-                    {itinerary?.destination || (hasAskedAi ? inferredDestination : 'Ke mana kita pergi?')}
-                  </h1>
                 </div>
               </div>
               {(itinerary || hasAskedAi) && (
@@ -1359,40 +1350,74 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <div className="flex flex-col gap-5 pb-6 2xl:flex-row">
-                <div className="min-w-0 flex-1">
-                  <p className="mb-3 text-xs font-semibold text-stone-500">
-                    {sortedDays.length} hari · {itinerary.items.length} aktivitas · ketuk aktivitas untuk melihat di peta
-                  </p>
-                  <div className="thin-scrollbar flex flex-col gap-4 pb-3 sm:flex-row sm:overflow-x-auto">
-                    {sortedDays
-                      .filter((day) => selectedDay === null || day === selectedDay)
-                      .map((day) => (
-                        <DayCard
-                          key={day}
-                          dayNumber={day}
-                          destination={itinerary.destination}
-                          startDate={itinerary.start_date}
-                          items={groupedItems[day] || []}
-                          isActive={selectedDay === day}
-                          onSelectDay={() => setSelectedDay(day)}
-                          onRefineDay={refineDay}
-                          onSelectPlace={(item) => setSelectedPlace(item)}
-                        />
-                      ))}
+              selectedDay === null ? (
+                <div className="space-y-4 pb-8">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-stone-500">
+                    <p>
+                      {sortedDays.length} hari · {itinerary.items.length} aktivitas terencana
+                    </p>
+                    <p className="hidden text-stone-400 sm:block">
+                      Klik kartu hari untuk fokus rute & peta interaktif
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    {sortedDays.map((day) => (
+                      <DayCard
+                        key={day}
+                        dayNumber={day}
+                        destination={itinerary.destination}
+                        startDate={itinerary.start_date}
+                        items={groupedItems[day] || []}
+                        isActive={false}
+                        onSelectDay={() => setSelectedDay(day)}
+                        onRefineDay={refineDay}
+                        onSelectPlace={(item) => {
+                          setSelectedDay(day)
+                          setSelectedPlace(item)
+                        }}
+                      />
+                    ))}
                   </div>
                 </div>
-                <div className="h-[360px] w-full shrink-0 2xl:h-auto 2xl:min-h-[520px] 2xl:w-[400px]">
-                  <TravelMap
-                    items={itinerary.items}
-                    destination={itinerary.destination}
-                    selectedDay={selectedDay}
-                    selectedPlace={selectedPlace}
-                    onSelectPlace={(item) => setSelectedPlace(item as ItineraryItem)}
-                    className="h-full min-h-[300px] w-full"
-                  />
+              ) : (
+                <div className="grid grid-cols-1 items-start gap-6 pb-8 lg:grid-cols-[380px_1fr]">
+                  <div className="min-w-0">
+                    <div className="mb-3 flex items-center justify-between text-xs font-semibold text-stone-500">
+                      <span>
+                        Fokus: Hari {selectedDay} ({groupedItems[selectedDay]?.length || 0} aktivitas)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDay(null)}
+                        className="font-medium text-teal-700 hover:text-teal-800 underline"
+                      >
+                        Lihat semua hari
+                      </button>
+                    </div>
+                    <DayCard
+                      key={selectedDay}
+                      dayNumber={selectedDay}
+                      destination={itinerary.destination}
+                      startDate={itinerary.start_date}
+                      items={groupedItems[selectedDay] || []}
+                      isActive={true}
+                      onSelectDay={() => setSelectedDay(null)}
+                      onRefineDay={refineDay}
+                      onSelectPlace={(item) => setSelectedPlace(item)}
+                    />
+                  </div>
+                  <div className="sticky top-0 h-[480px] w-full overflow-hidden rounded-2xl border border-stone-200/80 shadow-sm lg:h-[620px]">
+                    <TravelMap
+                      items={groupedItems[selectedDay] || itinerary.items}
+                      destination={itinerary.destination}
+                      selectedDay={selectedDay}
+                      selectedPlace={selectedPlace}
+                      onSelectPlace={(item) => setSelectedPlace(item as ItineraryItem)}
+                      className="h-full w-full"
+                    />
+                  </div>
                 </div>
-              </div>
+              )
             )}
           </div>
         </main>
