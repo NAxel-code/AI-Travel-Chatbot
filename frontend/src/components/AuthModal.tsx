@@ -67,7 +67,7 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
  */
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-end justify-center bg-stone-900/50 p-0 backdrop-blur-xs sm:items-center sm:p-4"
+      className="fixed inset-0 z-[9999] flex items-end justify-center bg-stone-900/50 dark:bg-black/75 p-0 backdrop-blur-xs sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={isLogin ? 'Masuk ke akun' : 'Buat akun baru'}
@@ -75,17 +75,17 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="animate-rise w-full max-w-md rounded-t-2xl border border-stone-200/90 bg-white p-6 shadow-2xl shadow-stone-900/20 sm:rounded-2xl">
+      <div className="animate-rise w-full max-w-md rounded-t-2xl border border-stone-200/90 bg-white dark:border-stone-800 dark:bg-[#141920] p-6 shadow-2xl shadow-stone-900/20 sm:rounded-2xl">
         <div className="mb-5 flex items-start justify-between">
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-xl bg-teal-700 text-white shadow-xs shadow-teal-900/20">
               <Route className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="font-display text-xl font-bold text-stone-900">
+              <h2 className="font-display text-xl font-bold text-stone-900 dark:text-stone-100">
                 {isLogin ? 'Masuk' : 'Buat akun'}
               </h2>
-              <p className="text-xs text-stone-600 font-medium">
+              <p className="text-xs text-stone-600 dark:text-stone-400 font-medium">
                 {isLogin
                   ? 'Preferensi dan perjalananmu mengikuti akun, bukan perangkat.'
                   : 'Simpan preferensi dan semua perjalanan dalam satu akun.'}
@@ -95,7 +95,7 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-stone-800 dark:hover:text-stone-200 outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
             aria-label="Tutup dialog masuk"
           >
             <X className="h-4 w-4" />
@@ -103,7 +103,7 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
         </div>
 
         {/* Mode toggle */}
-        <div className="mb-5 flex gap-1 rounded-full bg-stone-100 p-1" role="tablist">
+        <div className="mb-5 flex gap-1 rounded-full bg-stone-100 dark:bg-[#1a212b] p-1" role="tablist">
           {([['login', 'Masuk'], ['register', 'Daftar']] as const).map(([value, label]) => (
             <button
               key={value}
@@ -112,7 +112,9 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
               aria-selected={mode === value}
               onClick={() => switchMode(value)}
               className={`min-h-[40px] flex-1 rounded-full px-4 text-sm font-semibold transition active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-teal-700/80 ${
-                mode === value ? 'bg-white text-teal-800 shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                mode === value
+                  ? 'bg-white text-teal-800 shadow-xs dark:bg-[#141920] dark:text-teal-300'
+                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
               }`}
             >
               {label}
@@ -122,9 +124,9 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-stone-700">Email</span>
+            <span className="mb-1 block text-xs font-semibold text-stone-700 dark:text-stone-300">Email</span>
             <span className="relative block">
-              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400 dark:text-stone-500" />
               <input
                 ref={emailRef}
                 type="email"
@@ -132,28 +134,28 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="kamu@email.com"
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/70 py-2.5 pl-10 pr-3 text-sm text-stone-900 placeholder:text-stone-400 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50/70 py-2.5 pl-10 pr-3 text-sm text-stone-900 placeholder:text-stone-400 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:bg-[#141920]"
               />
             </span>
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-stone-700">Password</span>
+            <span className="mb-1 block text-xs font-semibold text-stone-700 dark:text-stone-300">Password</span>
             <span className="relative block">
-              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400 dark:text-stone-500" />
               <input
                 type="password"
                 autoComplete={isLogin ? 'current-password' : 'new-password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={isLogin ? 'Password akun' : 'Minimal 8 karakter'}
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/70 py-2.5 pl-10 pr-3 text-sm text-stone-900 placeholder:text-stone-400 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50/70 py-2.5 pl-10 pr-3 text-sm text-stone-900 placeholder:text-stone-400 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:bg-[#141920]"
               />
             </span>
           </label>
 
           {error && (
-            <p className="rounded-xl bg-rose-50 border border-rose-200/80 px-3 py-2 text-xs font-medium text-rose-800" role="alert">
+            <p className="rounded-xl bg-rose-50 border border-rose-200/80 px-3 py-2 text-xs font-medium text-rose-800 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300" role="alert">
               {error}
             </p>
           )}
@@ -168,12 +170,12 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
           </button>
         </form>
 
-        <p className="mt-4 text-center text-xs text-stone-600">
+        <p className="mt-4 text-center text-xs text-stone-600 dark:text-stone-400">
           {isLogin ? 'Belum punya akun? ' : 'Sudah punya akun? '}
           <button
             type="button"
             onClick={() => switchMode(isLogin ? 'register' : 'login')}
-            className="font-semibold text-teal-800 underline-offset-2 hover:underline outline-none focus-visible:ring-1 focus-visible:ring-teal-700 rounded-sm"
+            className="font-semibold text-teal-800 dark:text-teal-400 underline-offset-2 hover:underline outline-none focus-visible:ring-1 focus-visible:ring-teal-700 rounded-sm"
           >
             {isLogin ? 'Daftar sekarang' : 'Masuk di sini'}
           </button>

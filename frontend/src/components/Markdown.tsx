@@ -28,7 +28,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       nodes.push(<em key={key}>{match[4] ?? match[5]}</em>);
     } else if (match[6] !== undefined) {
       nodes.push(
-        <code key={key} className="px-1 py-0.5 rounded bg-black/10 text-[0.85em] font-mono">
+        <code key={key} className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 text-[0.85em] font-mono">
           {match[6]}
         </code>
       );

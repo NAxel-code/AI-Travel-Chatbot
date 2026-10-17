@@ -29,6 +29,7 @@ import {
   Sunset,
   Bike,
   Luggage,
+  HelpCircle,
 } from 'lucide-react'
 import { Markdown } from './components/Markdown'
 import { createIcs } from './lib/calendar'
@@ -40,6 +41,7 @@ import { DayCard } from './components/DayCard'
 import { TravelMap } from './components/TravelMap'
 import { ExpensesView } from './components/ExpensesView'
 import { PackingListModal } from './components/PackingListModal'
+import { TutorialModal } from './components/TutorialModal'
 import type { ItineraryItem } from './components/DayCard'
 
 function resolveApiBase(): string {
@@ -267,6 +269,14 @@ export default function App() {
   const [preferences, setPreferences] = useState<Preference[]>([])
   const [showPreferences, setShowPreferences] = useState(false)
   const [isPackingModalOpen, setIsPackingModalOpen] = useState(false)
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false)
+  const [hasSeenTutorial, setHasSeenTutorial] = useState(() => {
+    try {
+      return Boolean(localStorage.getItem('rute_has_seen_tutorial'))
+    } catch {
+      return false
+    }
+  })
   const [notices, setNotices] = useState<Notice[]>([])
   const [pageError, setPageError] = useState<string | null>(null)
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
@@ -278,6 +288,36 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [trips, setTrips] = useState<TripSummary[] | null>(null)
   const [showTrips, setShowTrips] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light'
+    try {
+      const saved = localStorage.getItem('rute_theme_preference')
+      if (saved === 'dark' || saved === 'light') return saved
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    } catch {
+      return 'light'
+    }
+  })
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (theme === 'dark') {
+      root.classList.add('dark')
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0c0f12')
+    } else {
+      root.classList.remove('dark')
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#faf8f4')
+    }
+    try {
+      localStorage.setItem('rute_theme_preference', theme)
+    } catch {
+      // Ignore storage errors
+    }
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
+  }
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -757,9 +797,9 @@ export default function App() {
 
   if (isBootstrapping) {
     return (
-      <main className="grid min-h-[100dvh] place-items-center bg-[#faf8f4] px-6">
-        <div className="flex items-center gap-3 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm text-stone-600 shadow-sm">
-          <Loader2 className="h-5 w-5 animate-spin text-teal-700" />
+      <main className="grid min-h-[100dvh] place-items-center bg-[#faf8f4] dark:bg-[#0c0f12] px-6 transition-colors duration-200">
+        <div className="flex items-center gap-3 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm text-stone-600 shadow-sm dark:border-stone-800 dark:bg-[#141920] dark:text-stone-300">
+          <Loader2 className="h-5 w-5 animate-spin text-teal-700 dark:text-teal-400" />
           Menyiapkan perjalananmu…
         </div>
       </main>
@@ -767,11 +807,13 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell flex h-[100dvh] w-full flex-col overflow-hidden bg-[#faf8f4] text-stone-800 antialiased">
+    <div className="app-shell flex h-[100dvh] w-full flex-col overflow-hidden bg-[#faf8f4] text-stone-800 antialiased dark:bg-[#0c0f12] dark:text-stone-100 transition-colors duration-200">
       <Navbar
         destination={itinerary?.destination || (hasAskedAi ? inferredDestination : undefined)}
         hasItinerary={Boolean(itinerary) || hasAskedAi}
         user={user}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         onSearch={(query) => {
           setActiveTab('chat')
           void sendMessage(`Cari rekomendasi tempat terkait: ${query}`)
@@ -797,36 +839,37 @@ export default function App() {
         onOpenAuth={() => setShowAuth(true)}
         onLogout={() => void logout()}
         onOpenTrips={() => void loadTrips()}
+        onOpenTutorial={() => setIsTutorialOpen(true)}
         isStartingSession={isStartingSession}
       />
 
       <div className="flex min-h-0 flex-1 gap-4 overflow-hidden p-2 sm:p-4 lg:p-5">
         {/* ───────── Chat panel ───────── */}
         <aside
-          className={`min-h-0 flex-col overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm shadow-stone-900/[0.03] ${
+          className={`min-h-0 flex-col overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm shadow-stone-900/[0.03] dark:border-stone-800/80 dark:bg-[#141920] dark:shadow-black/20 ${
             activeTab === 'chat' ? 'flex w-full' : 'hidden'
-          } lg:flex lg:w-[400px] lg:shrink-0 xl:w-[440px]`}
+          } lg:flex lg:w-[400px] lg:shrink-0 xl:w-[440px] transition-colors duration-200`}
         >
-          <header className="flex items-center justify-between border-b border-stone-100 px-3.5 sm:px-4 py-3 gap-2">
+          <header className="flex items-center justify-between border-b border-stone-100 px-3.5 sm:px-4 py-3 gap-2 dark:border-stone-800/80">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               {/* Mobile Back to Menu / Jadwal button */}
               <button
                 type="button"
                 onClick={() => setActiveTab('overview')}
-                className="lg:hidden flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-100 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-200 active:scale-95 transition shrink-0"
+                className="lg:hidden flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-100 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-200 active:scale-95 transition shrink-0 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-200 dark:hover:bg-[#222c3a]"
                 aria-label="Kembali ke Menu / Jadwal"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>Menu</span>
               </button>
 
-              <div className="relative grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-teal-50 text-teal-700">
+              <div className="relative grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-400">
                 <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full border-2 border-white bg-emerald-500" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-[#141920]" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-sm font-bold leading-none text-stone-900 truncate">Asisten Rute</h2>
-                <p className="mt-1 text-xs text-stone-500 truncate">
+                <h2 className="text-sm font-bold leading-none text-stone-900 dark:text-stone-100 truncate">Asisten Rute</h2>
+                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 truncate">
                   {isLoading ? 'Sedang menyusun…' : 'Siap membantu rencanamu'}
                 </p>
               </div>
@@ -837,7 +880,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleExportReport}
-                  className="lg:hidden flex items-center gap-1 rounded-xl bg-teal-50 border border-teal-600/30 px-2.5 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 active:scale-95 transition"
+                  className="lg:hidden flex items-center gap-1 rounded-xl bg-teal-50 border border-teal-600/30 px-2.5 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 active:scale-95 transition dark:bg-teal-950/40 dark:border-teal-700/50 dark:text-teal-300 dark:hover:bg-teal-900/40"
                   title="Unduh Dokumen Laporan Perjalanan"
                 >
                   <FileText className="h-3.5 w-3.5" />
@@ -850,8 +893,8 @@ export default function App() {
                 aria-expanded={showPreferences}
                 className={`flex min-h-[36px] sm:min-h-[40px] items-center gap-1.5 rounded-full px-2.5 sm:px-3 text-xs font-semibold transition ${
                   showPreferences
-                    ? 'bg-teal-700 text-white'
-                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    ? 'bg-teal-700 text-white dark:bg-teal-600'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-[#1a212b] dark:text-stone-300 dark:hover:bg-[#242e3b]'
                 }`}
                 title="Kelola preferensi yang diingat"
               >
@@ -862,20 +905,20 @@ export default function App() {
           </header>
 
           {showPreferences && (
-            <section className="animate-rise border-b border-stone-100 bg-stone-50/80 px-4 py-3" aria-label="Preferensi tersimpan">
+            <section className="animate-rise border-b border-stone-100 bg-stone-50/80 px-4 py-3 dark:border-stone-800 dark:bg-[#18202a]" aria-label="Preferensi tersimpan">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold text-stone-500">Hal yang Rute ingat tentangmu</p>
+                <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">Hal yang Rute ingat tentangmu</p>
                 <button
                   type="button"
                   onClick={() => setShowPreferences(false)}
-                  className="grid h-8 w-8 place-items-center rounded-full text-stone-400 hover:bg-stone-200 hover:text-stone-700"
+                  className="grid h-8 w-8 place-items-center rounded-full text-stone-400 hover:bg-stone-200 hover:text-stone-700 dark:hover:bg-stone-800 dark:hover:text-stone-200"
                   aria-label="Tutup memori"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
               {preferences.length === 0 ? (
-                <p className="text-xs text-stone-500">
+                <p className="text-xs text-stone-500 dark:text-stone-400">
                   Belum ada. Sebutkan hal seperti “suka pantai” atau “budget hemat” di chat.
                 </p>
               ) : (
@@ -883,16 +926,16 @@ export default function App() {
                   {preferences.map((p) => (
                     <li
                       key={p.preference_category}
-                      className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white py-1 pl-3 pr-1 text-xs text-stone-700"
+                      className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white py-1 pl-3 pr-1 text-xs text-stone-700 dark:border-stone-700 dark:bg-[#141920] dark:text-stone-200"
                     >
-                      <span className="font-semibold capitalize text-teal-800">
+                      <span className="font-semibold capitalize text-teal-800 dark:text-teal-400">
                         {p.preference_category.replaceAll('_', ' ')}:
                       </span>
                       <span className="max-w-[160px] truncate">{p.preference_value}</span>
                       <button
                         type="button"
                         onClick={() => void deletePreference(p.preference_category)}
-                        className="grid h-6 w-6 place-items-center rounded-full text-stone-400 transition hover:bg-rose-50 hover:text-rose-600"
+                        className="grid h-6 w-6 place-items-center rounded-full text-stone-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
                         aria-label={`Hapus preferensi ${p.preference_category}`}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -909,7 +952,7 @@ export default function App() {
               {notices.map((n) => (
                 <div
                   key={n.id}
-                  className="animate-rise flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800"
+                  className="animate-rise flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border dark:border-emerald-800/40"
                 >
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
                   {n.message}
@@ -926,19 +969,19 @@ export default function App() {
                 className={`animate-rise flex ${message.role === 'user' ? 'justify-end' : 'justify-start gap-2.5'}`}
               >
                 {message.role === 'model' && (
-                  <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-teal-700 text-white">
+                  <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-teal-700 text-white shadow-xs">
                     <Route className="h-3.5 w-3.5" />
                   </div>
                 )}
                 <div
                   className={`max-w-[85%] text-sm leading-relaxed ${
                     message.role === 'user'
-                      ? 'rounded-3xl rounded-br-md bg-teal-700 px-4 py-2.5 text-white'
-                      : 'rounded-3xl rounded-tl-md bg-stone-100 px-4 py-3 text-stone-800'
+                      ? 'rounded-3xl rounded-br-md bg-teal-700 px-4 py-2.5 text-white dark:bg-teal-600'
+                      : 'rounded-3xl rounded-tl-md bg-stone-100 px-4 py-3 text-stone-800 dark:bg-[#1a212b] dark:text-stone-100 dark:border dark:border-stone-800/80'
                   }`}
                 >
                   {message.role === 'model' && !message.content ? (
-                    <span className="flex items-center gap-2 text-stone-500">
+                    <span className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
                       <span className="flex gap-1" aria-hidden="true">
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600 [animation-delay:-0.3s]" />
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600 [animation-delay:-0.15s]" />
@@ -950,8 +993,8 @@ export default function App() {
                     <>
                       <Markdown content={message.content} />
                       {index === messages.length - 1 && isLoading && chatProgress && (
-                        <div className="mt-2.5 flex items-center gap-2 border-t border-stone-200 pt-2 text-xs text-stone-500">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-700" />
+                        <div className="mt-2.5 flex items-center gap-2 border-t border-stone-200 dark:border-stone-800 pt-2 text-xs text-stone-500 dark:text-stone-400">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-700 dark:text-teal-400" />
                           <span>{chatProgress}</span>
                         </div>
                       )}
@@ -966,23 +1009,48 @@ export default function App() {
             {/* Starter prompts on a fresh conversation */}
             {!hasAskedAi && !isLoading && (
               <div className="animate-rise space-y-2 pl-9">
-                <p className="text-xs font-semibold text-stone-500">Coba mulai dengan:</p>
+                {!hasSeenTutorial && (
+                  <div className="mb-2.5 flex items-center justify-between gap-2 rounded-2xl border border-teal-200/80 bg-teal-50/70 p-2.5 sm:p-3 text-xs text-teal-900 dark:border-teal-800/60 dark:bg-teal-950/40 dark:text-teal-200">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-teal-700 dark:text-teal-400 shrink-0" />
+                      <span className="font-medium">Baru di Rute? Lihat cara kerja & fiturnya</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsTutorialOpen(true)}
+                      className="shrink-0 font-bold underline decoration-teal-700 underline-offset-2 hover:text-teal-800 dark:decoration-teal-400 dark:hover:text-teal-300"
+                    >
+                      Buka Panduan ➔
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">Coba mulai dengan:</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsTutorialOpen(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 transition"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                    <span>Panduan Cepat</span>
+                  </button>
+                </div>
                 <div className="flex flex-col gap-2">
                   {STARTER_PROMPTS.map(({ label, hint, prompt, Icon }) => (
                     <button
                       key={label}
                       type="button"
                       onClick={() => runStarter(prompt)}
-                      className="group flex min-h-[52px] items-center gap-3 rounded-2xl border border-stone-200 bg-white px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-teal-600/40 hover:shadow-md hover:shadow-stone-900/5 active:translate-y-0"
+                      className="group flex min-h-[52px] items-center gap-3 rounded-2xl border border-stone-200 bg-white px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-teal-600/40 hover:shadow-md hover:shadow-stone-900/5 active:translate-y-0 dark:border-stone-800 dark:bg-[#18202a] dark:hover:border-teal-500/50"
                     >
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700 transition group-hover:bg-teal-50 group-hover:text-teal-700">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700 transition group-hover:bg-teal-50 group-hover:text-teal-700 dark:bg-amber-950/40 dark:text-amber-300 dark:group-hover:bg-teal-950/50 dark:group-hover:text-teal-300">
                         <Icon className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold text-stone-800">{label}</span>
-                        <span className="block text-xs text-stone-500">{hint}</span>
+                        <span className="block text-sm font-semibold text-stone-800 dark:text-stone-100">{label}</span>
+                        <span className="block text-xs text-stone-500 dark:text-stone-400">{hint}</span>
                       </span>
-                      <ArrowRight className="h-4 w-4 text-stone-300 transition group-hover:translate-x-0.5 group-hover:text-teal-700" />
+                      <ArrowRight className="h-4 w-4 text-stone-300 transition group-hover:translate-x-0.5 group-hover:text-teal-700 dark:text-stone-600 dark:group-hover:text-teal-400" />
                     </button>
                   ))}
                 </div>
@@ -991,21 +1059,21 @@ export default function App() {
 
             {/* Petunjuk Laporan & Dokumen Perjalanan setelah AI selesai menyusun itinerary */}
             {hasAskedAi && !isLoading && (
-              <div className="animate-rise rounded-2xl border border-teal-600/30 bg-teal-50/70 p-3.5 shadow-sm space-y-3">
+              <div className="animate-rise rounded-2xl border border-teal-600/30 bg-teal-50/70 p-3.5 shadow-sm space-y-3 dark:border-teal-800/60 dark:bg-teal-950/40">
                 <div className="flex items-start gap-2.5">
                   <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-teal-700 text-white shadow-sm">
                     <FileText className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-800 uppercase tracking-wide">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-800 uppercase tracking-wide dark:bg-teal-900/60 dark:text-teal-300">
                         <CheckCircle2 className="h-3 w-3" /> Selesai
                       </span>
-                      <h3 className="text-xs font-bold text-stone-900 truncate">
+                      <h3 className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
                         Laporan {inferredDestination} ({inferredDayCount} Hari) Siap!
                       </h3>
                     </div>
-                    <p className="mt-1 text-xs text-stone-600 leading-relaxed">
+                    <p className="mt-1 text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
                       Dokumen perjalananmu sudah siap. Ketuk tombol di bawah untuk mengunduh laporan PDF resmi, atau eksplorasi jadwal, peta rute, dan rincian biaya:
                     </p>
                   </div>
@@ -1041,20 +1109,20 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setIsPackingModalOpen(true)}
-                    className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
+                    className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98] dark:border-stone-800 dark:bg-[#141920] dark:text-stone-200 dark:hover:bg-[#1c232d]"
                     title="Buka checklist barang bawaan traveler"
                   >
-                    <CheckSquare className="h-4 w-4 text-teal-700" />
+                    <CheckSquare className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                     <span>Checklist Bawaan</span>
                   </button>
                   {itinerary && (
                     <button
                       type="button"
                       onClick={exportCalendar}
-                      className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
+                      className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98] dark:border-stone-800 dark:bg-[#141920] dark:text-stone-200 dark:hover:bg-[#1c232d]"
                       title="Simpan jadwal ke kalender HP (.ics)"
                     >
-                      <Calendar className="h-4 w-4 text-teal-700" />
+                      <Calendar className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                       <span>Kalender (.ics)</span>
                     </button>
                   )}
@@ -1065,7 +1133,7 @@ export default function App() {
             {/* Quick Reply Suggestions */}
             {hasAskedAi && !isLoading && (
               <div className="animate-rise space-y-1.5 pt-1">
-                <p className="text-[11px] font-semibold text-stone-500 flex items-center gap-1">
+                <p className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1">
                   <Sparkles className="h-3 w-3 text-amber-500" /> Pertanyaan lanjutan:
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -1085,9 +1153,9 @@ export default function App() {
                           void sendMessage(text)
                         }
                       }}
-                      className="flex items-center gap-1.5 rounded-full border border-stone-200/90 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 transition hover:border-teal-700/40 hover:bg-teal-50/70 hover:text-teal-900 active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-teal-700 shadow-xs"
+                      className="flex items-center gap-1.5 rounded-full border border-stone-200/90 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 transition hover:border-teal-700/40 hover:bg-teal-50/70 hover:text-teal-900 active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-teal-700 shadow-xs dark:border-stone-800 dark:bg-[#18202a] dark:text-stone-300 dark:hover:border-teal-600/50 dark:hover:bg-teal-950/40 dark:hover:text-teal-200"
                     >
-                      <Icon className="h-3.5 w-3.5 text-teal-700" />
+                      <Icon className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
                       <span>{text}</span>
                     </button>
                   ))}
@@ -1099,19 +1167,19 @@ export default function App() {
           </div>
 
           {/* Composer */}
-          <footer className="border-t border-stone-100 p-3">
+          <footer className="border-t border-stone-100 dark:border-stone-800/80 p-3">
             {lastFailedMessage && !isLoading && (
               <button
                 type="button"
                 onClick={() => void sendMessage(lastFailedMessage)}
-                className="mb-2 flex min-h-[40px] items-center gap-1.5 rounded-full bg-rose-50 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100"
+                className="mb-2 flex min-h-[40px] items-center gap-1.5 rounded-full bg-rose-50 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/60"
               >
                 <RotateCcw className="h-4 w-4" /> Coba kirim ulang
               </button>
             )}
             <form
               onSubmit={handleSubmit}
-              className="flex items-end gap-2 rounded-2xl border border-stone-200 bg-stone-50/80 p-1.5 transition focus-within:border-teal-700 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-700/20"
+              className="flex items-end gap-2 rounded-2xl border border-stone-200 bg-stone-50/80 p-1.5 transition focus-within:border-teal-700 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-700/20 dark:border-stone-800 dark:bg-[#1a212b] dark:focus-within:bg-[#141920] dark:focus-within:border-teal-500"
             >
               <textarea
                 ref={inputRef}
@@ -1123,13 +1191,13 @@ export default function App() {
                 rows={1}
                 aria-label="Pesan untuk Rute"
                 placeholder="Mau liburan ke mana?"
-                className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-base text-stone-800 placeholder:text-stone-400 focus:outline-none disabled:opacity-60 sm:text-sm"
+                className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-base text-stone-800 placeholder:text-stone-400 focus:outline-none disabled:opacity-60 sm:text-sm dark:text-stone-100 dark:placeholder:text-stone-500"
               />
               {isLoading ? (
                 <button
                   type="button"
                   onClick={cancelRequest}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-stone-800 text-white transition hover:bg-stone-900"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-stone-800 text-white transition hover:bg-stone-900 dark:bg-stone-700 dark:hover:bg-stone-600"
                   title="Hentikan"
                   aria-label="Hentikan"
                 >
@@ -1139,7 +1207,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={!input.trim()}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-teal-700 text-white shadow-sm transition hover:bg-teal-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-stone-300"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-teal-700 text-white shadow-sm transition hover:bg-teal-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-stone-300 dark:disabled:bg-stone-800 dark:disabled:text-stone-600"
                   title="Kirim pesan"
                   aria-label="Kirim pesan"
                 >
@@ -1147,7 +1215,7 @@ export default function App() {
                 </button>
               )}
             </form>
-            <p className="mt-1.5 hidden px-2 text-[11px] text-stone-400 sm:block">
+            <p className="mt-1.5 hidden px-2 text-[11px] text-stone-400 dark:text-stone-500 sm:block">
               Enter untuk kirim · Shift+Enter baris baru · Verifikasi harga & jam buka sebelum berangkat
             </p>
           </footer>
@@ -1155,33 +1223,33 @@ export default function App() {
 
         {/* ───────── Workspace panel ───────── */}
         <main
-          className={`min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm shadow-stone-900/[0.03] ${
+          className={`min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm shadow-stone-900/[0.03] dark:border-stone-800/90 dark:bg-[#141920] ${
             activeTab === 'chat' ? 'hidden' : 'flex'
           } lg:flex`}
         >
-          <div className="flex flex-col gap-3 border-b border-stone-100 px-4 pb-3 pt-4 sm:px-6">
+          <div className="flex flex-col gap-3 border-b border-stone-100 dark:border-stone-800/80 px-4 pb-3 pt-4 sm:px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveTab('chat')}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-stone-200 text-stone-600 hover:bg-stone-50 lg:hidden"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-stone-200 text-stone-600 hover:bg-stone-50 dark:border-stone-800 dark:text-stone-300 dark:hover:bg-stone-800/60 lg:hidden"
                   aria-label="Kembali ke chat"
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h1 className="truncate font-display text-2xl font-bold text-stone-900 sm:text-3xl">
+                    <h1 className="truncate font-display text-2xl font-bold text-stone-900 dark:text-stone-100 sm:text-3xl">
                       {itinerary?.destination || (hasAskedAi ? inferredDestination : 'Ke mana kita pergi?')}
                     </h1>
                     {itinerary && (
-                      <span className="hidden sm:inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                      <span className="hidden sm:inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-700/40">
                         Tersimpan
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-xs text-stone-500">
+                  <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
                     {itinerary
                       ? `${sortedDays.length} hari eksplorasi · Jadwal terpadu`
                       : hasAskedAi
@@ -1191,7 +1259,7 @@ export default function App() {
                 </div>
               </div>
               {(itinerary || hasAskedAi) && (
-                <div className="flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-semibold text-stone-600">
+                <div className="flex items-center gap-2 rounded-full bg-stone-100 dark:bg-[#1a212b] px-3 py-1.5 text-xs font-semibold text-stone-600 dark:text-stone-300">
                   <Calendar className="h-3.5 w-3.5" />
                   {itinerary
                     ? formatRangeDates(itinerary.start_date, itinerary.end_date)
@@ -1202,7 +1270,7 @@ export default function App() {
 
             {/* Segmented tabs */}
             <nav
-              className="flex w-full gap-1 self-start rounded-full bg-stone-100 p-1 sm:w-auto"
+              className="flex w-full gap-1 self-start rounded-full bg-stone-100 dark:bg-[#1a212b] p-1 sm:w-auto"
               aria-label="Tampilan rencana"
             >
               {WORKSPACE_TABS.map(([tab, label, Icon]) => (
@@ -1216,8 +1284,8 @@ export default function App() {
                   aria-current={workspaceTab === tab ? 'page' : undefined}
                   className={`flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition sm:flex-none ${
                     workspaceTab === tab
-                      ? 'bg-white text-teal-800 shadow-sm'
-                      : 'text-stone-500 hover:text-stone-800'
+                      ? 'bg-white text-teal-800 shadow-sm dark:bg-[#141920] dark:text-teal-300 dark:shadow-none'
+                      : 'text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -1229,7 +1297,7 @@ export default function App() {
 
           <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
             {pageError && (
-              <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" role="alert">
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-300" role="alert">
                 <span>{pageError}</span>
                 <div className="flex shrink-0 items-center gap-2">
                   <button type="button" onClick={retryBootstrap} className="font-semibold underline">
@@ -1238,7 +1306,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setPageError(null)}
-                    className="grid h-8 w-8 place-items-center rounded-full hover:bg-rose-100"
+                    className="grid h-8 w-8 place-items-center rounded-full hover:bg-rose-100 dark:hover:bg-rose-900/40"
                     aria-label="Tutup pesan"
                   >
                     <X className="h-4 w-4" />
@@ -1258,7 +1326,7 @@ export default function App() {
                     className={`min-h-[36px] shrink-0 rounded-full border px-4 text-xs font-semibold transition ${
                       selectedDay === day
                         ? 'border-teal-700 bg-teal-700 text-white'
-                        : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300'
+                        : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-300 dark:hover:border-stone-700'
                     }`}
                   >
                     {day === null ? 'Semua hari' : `Hari ${day}`}
@@ -1281,17 +1349,29 @@ export default function App() {
             ) : !itinerary ? (
               <div className="mx-auto grid max-w-2xl gap-6 py-6 sm:py-10">
                 <div className="space-y-3">
-                  <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-50 text-amber-700">
+                  <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                     <Compass className="h-7 w-7" />
                   </div>
-                  <h2 className="font-display text-3xl font-bold text-stone-900 sm:text-4xl">
+                  <h2 className="font-display text-3xl font-bold text-stone-900 dark:text-stone-100 sm:text-4xl">
                     {hasAskedAi ? `Lanjutkan rencana ke ${inferredDestination}` : 'Ceritakan liburan impianmu.'}
                   </h2>
-                  <p className="max-w-lg text-sm leading-relaxed text-stone-600 sm:text-base">
+                  <p className="max-w-lg text-sm leading-relaxed text-stone-600 dark:text-stone-400 sm:text-base">
                     {hasAskedAi
                       ? `Detail perjalanan ${inferredDayCount} hari masih dibahas di chat. Begitu itinerary disimpan, jadwal harian dan peta akan muncul di sini.`
                       : 'Tulis tujuan, berapa hari, dan gaya liburanmu. Rute mencari tempat nyata di OpenStreetMap, mengecek cuaca, lalu menyusun jadwal per hari.'}
                   </p>
+                  {!hasAskedAi && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsTutorialOpen(true)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 underline decoration-teal-700/60 dark:decoration-teal-400/60 underline-offset-4 transition"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5" />
+                        <span>Pelajari panduan fitur & contoh prompt ➔</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {hasAskedAi ? (
@@ -1310,14 +1390,14 @@ export default function App() {
                       type="button"
                       onClick={() => runStarter(`Simpan itinerary ${inferredDayCount} hari ke ${inferredDestination} sekarang`)}
                       disabled={isLoading}
-                      className="flex min-h-[44px] items-center gap-2 rounded-full bg-stone-900 px-5 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:opacity-50"
+                      className="flex min-h-[44px] items-center gap-2 rounded-full bg-stone-900 dark:bg-teal-700 px-5 text-sm font-semibold text-white transition hover:bg-stone-800 dark:hover:bg-teal-800 disabled:opacity-50"
                     >
                       <Sparkles className="h-4 w-4" /> Buatkan itinerary sekarang
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveTab('expenses')}
-                      className="flex min-h-[44px] items-center gap-2 rounded-full border border-stone-200 px-5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50"
+                      className="flex min-h-[44px] items-center gap-2 rounded-full border border-stone-200 px-5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 dark:border-stone-800 dark:text-stone-300 dark:hover:bg-stone-800/50"
                     >
                       <Wallet className="h-4 w-4" /> Lihat estimasi biaya
                     </button>
@@ -1332,14 +1412,14 @@ export default function App() {
                         disabled={isLoading}
                         className={`group flex flex-col justify-between gap-3 rounded-3xl border p-5 text-left transition hover:-translate-y-1 hover:shadow-lg hover:shadow-stone-900/5 disabled:opacity-50 ${
                           i === 0
-                            ? 'border-teal-800 bg-teal-800 text-white sm:row-span-2'
-                            : 'border-stone-200 bg-stone-50 text-stone-800 hover:border-stone-300'
+                            ? 'border-teal-800 bg-teal-800 text-white dark:border-teal-700 dark:bg-teal-900/60'
+                            : 'border-stone-200 bg-stone-50 text-stone-800 hover:border-stone-300 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-100 dark:hover:border-stone-700'
                         }`}
                       >
-                        <Icon className={`h-6 w-6 ${i === 0 ? 'text-amber-300' : 'text-amber-700'}`} />
+                        <Icon className={`h-6 w-6 ${i === 0 ? 'text-amber-300' : 'text-amber-700 dark:text-amber-400'}`} />
                         <span>
                           <span className={`block font-display font-bold ${i === 0 ? 'text-2xl' : 'text-lg'}`}>{label}</span>
-                          <span className={`mt-1 flex items-center gap-1 text-sm ${i === 0 ? 'text-teal-100' : 'text-stone-500'}`}>
+                          <span className={`mt-1 flex items-center gap-1 text-sm ${i === 0 ? 'text-teal-100' : 'text-stone-500 dark:text-stone-400'}`}>
                             {hint}
                             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                           </span>
@@ -1352,11 +1432,11 @@ export default function App() {
             ) : (
               selectedDay === null ? (
                 <div className="space-y-4 pb-8">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-stone-500">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-stone-500 dark:text-stone-400">
                     <p>
                       {sortedDays.length} hari · {itinerary.items.length} aktivitas terencana
                     </p>
-                    <p className="hidden text-stone-400 sm:block">
+                    <p className="hidden text-stone-400 dark:text-stone-500 sm:block">
                       Klik kartu hari untuk fokus rute & peta interaktif
                     </p>
                   </div>
@@ -1382,14 +1462,14 @@ export default function App() {
               ) : (
                 <div className="grid grid-cols-1 items-start gap-6 pb-8 lg:grid-cols-[380px_1fr]">
                   <div className="min-w-0">
-                    <div className="mb-3 flex items-center justify-between text-xs font-semibold text-stone-500">
+                    <div className="mb-3 flex items-center justify-between text-xs font-semibold text-stone-500 dark:text-stone-400">
                       <span>
                         Fokus: Hari {selectedDay} ({groupedItems[selectedDay]?.length || 0} aktivitas)
                       </span>
                       <button
                         type="button"
                         onClick={() => setSelectedDay(null)}
-                        className="font-medium text-teal-700 hover:text-teal-800 underline"
+                        className="font-medium text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 underline"
                       >
                         Lihat semua hari
                       </button>
@@ -1406,7 +1486,7 @@ export default function App() {
                       onSelectPlace={(item) => setSelectedPlace(item)}
                     />
                   </div>
-                  <div className="sticky top-0 h-[480px] w-full overflow-hidden rounded-2xl border border-stone-200/80 shadow-sm lg:h-[620px]">
+                  <div className="sticky top-0 h-[480px] w-full overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800/90 shadow-sm lg:h-[620px]">
                     <TravelMap
                       items={groupedItems[selectedDay] || itinerary.items}
                       destination={itinerary.destination}
@@ -1425,7 +1505,7 @@ export default function App() {
 
       {/* Mobile bottom navigation */}
       <nav
-        className="z-40 flex shrink-0 items-stretch justify-around border-t border-stone-200 bg-white px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 lg:hidden"
+        className="z-40 flex shrink-0 items-stretch justify-around border-t border-stone-200 bg-white dark:border-stone-800 dark:bg-[#141920] px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 lg:hidden"
         aria-label="Navigasi utama"
       >
         {([['chat', 'Chat', MessageSquare], ...WORKSPACE_TABS] as const).map(([tab, label, Icon]) => (
@@ -1435,12 +1515,12 @@ export default function App() {
             onClick={() => setActiveTab(tab)}
             aria-current={activeTab === tab ? 'page' : undefined}
             className={`relative flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 text-xs font-semibold transition ${
-              activeTab === tab ? 'text-teal-800' : 'text-stone-400'
+              activeTab === tab ? 'text-teal-800 dark:text-teal-300' : 'text-stone-400 dark:text-stone-500'
             }`}
           >
             <span
               className={`grid h-7 w-12 place-items-center rounded-full transition ${
-                activeTab === tab ? 'bg-teal-100' : ''
+                activeTab === tab ? 'bg-teal-100 dark:bg-teal-950/60' : ''
               }`}
             >
               <Icon className="h-5 w-5" />
@@ -1462,9 +1542,22 @@ export default function App() {
         dayCount={inferredDayCount}
       />
 
+      <TutorialModal
+        isOpen={isTutorialOpen}
+        onClose={() => {
+          setIsTutorialOpen(false)
+          setHasSeenTutorial(true)
+        }}
+        onSelectPrompt={(prompt) => {
+          setActiveTab('chat')
+          setHasSeenTutorial(true)
+          void sendMessage(prompt)
+        }}
+      />
+
       {showTrips && (
         <div
-          className="fixed inset-0 z-[9999] flex items-end justify-center bg-stone-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          className="fixed inset-0 z-[9999] flex items-end justify-center bg-stone-900/40 dark:bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Perjalanan saya"
@@ -1472,16 +1565,16 @@ export default function App() {
             if (event.target === event.currentTarget) setShowTrips(false)
           }}
         >
-          <div className="animate-rise flex max-h-[80dvh] w-full max-w-lg flex-col rounded-t-3xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/20 sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
+          <div className="animate-rise flex max-h-[80dvh] w-full max-w-lg flex-col rounded-t-3xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-[#141920] shadow-2xl shadow-stone-900/20 sm:rounded-3xl">
+            <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800/80 px-5 py-4">
               <div>
-                <h2 className="font-display text-xl font-bold text-stone-900">Perjalanan saya</h2>
-                <p className="text-xs text-stone-500">Itinerary tersimpan di akunmu, terbaru di atas.</p>
+                <h2 className="font-display text-xl font-bold text-stone-900 dark:text-stone-100">Perjalanan saya</h2>
+                <p className="text-xs text-stone-500 dark:text-stone-400">Itinerary tersimpan di akunmu, terbaru di atas.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowTrips(false)}
-                className="grid h-9 w-9 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+                className="grid h-9 w-9 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-stone-800 dark:hover:text-stone-200"
                 aria-label="Tutup"
               >
                 <X className="h-4 w-4" />
@@ -1490,15 +1583,15 @@ export default function App() {
 
             <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto p-4">
               {trips === null ? (
-                <div className="flex items-center justify-center gap-2 py-10 text-sm text-stone-500">
-                  <Loader2 className="h-5 w-5 animate-spin text-teal-700" /> Memuat perjalanan…
+                <div className="flex items-center justify-center gap-2 py-10 text-sm text-stone-500 dark:text-stone-400">
+                  <Loader2 className="h-5 w-5 animate-spin text-teal-700 dark:text-teal-400" /> Memuat perjalanan…
                 </div>
               ) : trips.length === 0 ? (
                 <div className="grid place-items-center gap-3 py-10 text-center">
-                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-50 text-amber-700">
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                     <Compass className="h-6 w-6" />
                   </span>
-                  <p className="max-w-xs text-sm text-stone-600">
+                  <p className="max-w-xs text-sm text-stone-600 dark:text-stone-400">
                     Belum ada perjalanan tersimpan. Buat itinerary lewat chat, dan akan muncul di sini.
                   </p>
                 </div>
@@ -1511,15 +1604,15 @@ export default function App() {
                         onClick={() => void openTrip(trip.session_id)}
                         className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-teal-600/40 hover:shadow-md hover:shadow-stone-900/5 ${
                           credentials?.sessionId === trip.session_id
-                            ? 'border-teal-700 bg-teal-50/60'
-                            : 'border-stone-200 bg-white'
+                            ? 'border-teal-700 bg-teal-50/60 dark:border-teal-600/60 dark:bg-teal-950/40'
+                            : 'border-stone-200 bg-white dark:border-stone-800 dark:bg-[#1a212b] dark:hover:border-teal-600/40'
                         }`}
                       >
                         <span className="min-w-0">
-                          <span className="block truncate font-display text-base font-bold text-stone-900">
+                          <span className="block truncate font-display text-base font-bold text-stone-900 dark:text-stone-100">
                             {trip.destination}
                           </span>
-                          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-stone-500">
+                          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
                             <Calendar className="h-3.5 w-3.5" />
                             {formatRangeDates(trip.start_date, trip.end_date)}
                           </span>

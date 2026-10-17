@@ -539,27 +539,27 @@ export function TravelMap({
 
   return (
     <div
-      className={`relative isolate z-0 flex flex-col overflow-hidden rounded-3xl border border-stone-200 bg-[#e5e3df] shadow-sm transition-all ${
+      className={`relative isolate z-0 flex flex-col overflow-hidden rounded-3xl border border-stone-200 bg-[#e5e3df] dark:border-stone-800 dark:bg-[#12161c] shadow-sm transition-all ${
         isFullscreen ? 'fixed inset-4 z-[9998] rounded-2xl shadow-2xl' : className
       }`}
     >
       {/* Top-Left Google Maps Floating Card + Layer Switcher */}
       <div className="absolute left-3 top-3 z-[400] flex flex-wrap items-center gap-2 max-w-[calc(100%-90px)]">
-        <div className="flex items-center gap-2 rounded-xl bg-white/95 px-3 py-1.5 shadow-md border border-slate-200/80 text-slate-800 backdrop-blur-sm">
+        <div className="flex items-center gap-2 rounded-xl bg-white/95 px-3 py-1.5 shadow-md border border-slate-200/80 text-slate-800 backdrop-blur-sm dark:bg-[#141920]/95 dark:border-stone-800 dark:text-stone-200">
           <MapPin className="h-4 w-4 text-[#ea4335] shrink-0" />
           <span className="text-xs font-bold tracking-tight truncate max-w-[160px] sm:max-w-[240px]">
             {destination} {selectedDay ? `· Hari ${selectedDay}` : ''}
           </span>
           {resolvedStops.length > 0 && (
-            <span className="rounded-full bg-[#e8f0fe] px-2 py-0.5 text-[10px] font-bold text-[#1967d2] shrink-0">
+            <span className="rounded-full bg-[#e8f0fe] px-2 py-0.5 text-[10px] font-bold text-[#1967d2] dark:bg-teal-950/60 dark:text-teal-300 shrink-0">
               {resolvedStops.length} titik
             </span>
           )}
         </div>
 
         {/* Layer Switcher (Peta / Satelit / Medan) */}
-        <div className="flex items-center rounded-xl bg-white/95 p-0.5 shadow-md border border-slate-200/80 backdrop-blur-sm">
-          <Layers className="h-3.5 w-3.5 text-slate-500 ml-2 mr-1 hidden sm:block" />
+        <div className="flex items-center rounded-xl bg-white/95 p-0.5 shadow-md border border-slate-200/80 backdrop-blur-sm dark:bg-[#141920]/95 dark:border-stone-800">
+          <Layers className="h-3.5 w-3.5 text-slate-500 dark:text-stone-400 ml-2 mr-1 hidden sm:block" />
           {(['roadmap', 'hybrid', 'terrain'] as MapStyle[]).map((styleKey) => (
             <button
               key={styleKey}
@@ -568,7 +568,7 @@ export function TravelMap({
               className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
                 mapStyle === styleKey
                   ? 'bg-[#1a73e8] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-stone-300 dark:hover:bg-[#1c2430] dark:hover:text-stone-100'
               }`}
             >
               {TILE_CONFIGS[styleKey].label}
@@ -584,7 +584,7 @@ export function TravelMap({
           target="_blank"
           rel="noreferrer"
           title="Buka rute lengkap di Google Maps"
-          className="flex items-center gap-1.5 rounded-xl bg-white/95 px-2.5 py-1.5 text-[11px] font-semibold text-[#1a73e8] shadow-md border border-slate-200/80 hover:bg-white transition"
+          className="flex items-center gap-1.5 rounded-xl bg-white/95 px-2.5 py-1.5 text-[11px] font-semibold text-[#1a73e8] shadow-md border border-slate-200/80 hover:bg-white dark:bg-[#141920]/95 dark:border-stone-800 dark:text-teal-400 dark:hover:bg-[#1c2430] transition"
         >
           <Navigation className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Google Maps</span>
@@ -594,7 +594,7 @@ export function TravelMap({
         <button
           type="button"
           onClick={toggleFullscreen}
-          className="grid h-8 w-8 place-items-center rounded-xl bg-white/95 text-slate-700 shadow-md border border-slate-200/80 hover:bg-white hover:text-slate-950 transition"
+          className="grid h-8 w-8 place-items-center rounded-xl bg-white/95 text-slate-700 shadow-md border border-slate-200/80 hover:bg-white hover:text-slate-950 dark:bg-[#141920]/95 dark:border-stone-800 dark:text-stone-300 dark:hover:bg-[#1c2430] dark:hover:text-stone-100 transition"
           aria-label={isFullscreen ? 'Keluar layar penuh' : 'Layar penuh'}
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -606,7 +606,7 @@ export function TravelMap({
 
       {/* Bottom Interactive Stop Bar (Google Maps style stop chips) */}
       {resolvedStops.length > 0 && (
-        <div className="z-[400] border-t border-slate-200/80 bg-white/95 px-3 py-2 backdrop-blur-sm">
+        <div className="z-[400] border-t border-slate-200/80 bg-white/95 px-3 py-2 backdrop-blur-sm dark:border-stone-800 dark:bg-[#141920]/95">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 thin-scrollbar">
             {resolvedStops.map((stop) => {
               const isSelected = activeStopId === stop.id || selectedPlace?.id === stop.id
@@ -618,7 +618,7 @@ export function TravelMap({
                   className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition shrink-0 border ${
                     isSelected
                       ? 'bg-[#1a73e8] text-white border-[#1a73e8] shadow-sm'
-                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200/70'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200/70 dark:bg-[#1a212b] dark:text-stone-300 dark:border-stone-800 dark:hover:bg-[#222c38]'
                   }`}
                 >
                   <span
@@ -637,7 +637,7 @@ export function TravelMap({
       )}
 
       {/* Google Attribution Badge */}
-      <div className="absolute bottom-12 left-2.5 z-[400] pointer-events-none rounded bg-white/85 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 shadow-sm">
+      <div className="absolute bottom-12 left-2.5 z-[400] pointer-events-none rounded bg-white/85 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-[#141920]/85 dark:text-stone-400 shadow-sm">
         {TILE_CONFIGS[mapStyle].attribution}
       </div>
     </div>

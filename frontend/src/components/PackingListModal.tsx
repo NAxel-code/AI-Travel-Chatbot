@@ -180,20 +180,20 @@ export function PackingListModal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-stone-900/60 p-3 sm:p-4 backdrop-blur-xs"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-stone-900/60 dark:bg-black/75 p-3 sm:p-4 backdrop-blur-xs"
     >
-      <div className="animate-rise relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-2xl">
+      <div className="animate-rise relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-stone-200/90 bg-white dark:border-stone-800 dark:bg-[#141920] shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800/80 px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-teal-50 text-teal-800 border border-teal-100">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-teal-50 text-teal-800 border border-teal-100 dark:bg-teal-950/50 dark:text-teal-300 dark:border-teal-800/60">
               <Luggage className="h-5 w-5" />
             </span>
             <div>
-              <h2 id="packing-title" className="font-display text-lg font-bold text-stone-900">
+              <h2 id="packing-title" className="font-display text-lg font-bold text-stone-900 dark:text-stone-100">
                 Checklist Bawaan Traveler
               </h2>
-              <p className="text-xs text-stone-600 font-medium">
+              <p className="text-xs text-stone-600 dark:text-stone-400 font-medium">
                 Perlengkapan siap berangkat ke {destination} ({dayCount} Hari)
               </p>
             </div>
@@ -201,7 +201,7 @@ export function PackingListModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
+            className="grid h-9 w-9 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-stone-800 dark:hover:text-stone-200 outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
             aria-label="Tutup checklist"
           >
             <X className="h-4 w-4" />
@@ -209,17 +209,17 @@ export function PackingListModal({
         </div>
 
         {/* Progress Bar */}
-        <div className="bg-stone-50 px-5 py-3 border-b border-stone-100">
+        <div className="bg-stone-50 dark:bg-[#18202a] px-5 py-3 border-b border-stone-100 dark:border-stone-800">
           <div className="flex items-center justify-between text-xs font-semibold">
-            <span className="text-stone-700">
+            <span className="text-stone-700 dark:text-stone-300">
               {completedCount} dari {totalItems} barang siap ({percent}%)
             </span>
             {percent === 100 ? (
-              <span className="flex items-center gap-1 font-bold text-teal-800">
-                <CheckCircle2 className="h-3.5 w-3.5 text-teal-700" /> Siap Berangkat!
+              <span className="flex items-center gap-1 font-bold text-teal-800 dark:text-teal-300">
+                <CheckCircle2 className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" /> Siap Berangkat!
               </span>
             ) : (
-              <span className="text-stone-500 text-[11px]">Tersisa {totalItems - completedCount} barang</span>
+              <span className="text-stone-500 dark:text-stone-400 text-[11px]">Tersisa {totalItems - completedCount} barang</span>
             )}
           </div>
           <div
@@ -228,11 +228,11 @@ export function PackingListModal({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label="Progress kelengkapan barang"
-            className="mt-2 h-2 w-full overflow-hidden rounded-full bg-stone-200"
+            className="mt-2 h-2 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800"
           >
             <div
               className={`h-full transition-all duration-300 rounded-full ${
-                percent === 100 ? 'bg-teal-600' : 'bg-teal-700'
+                percent === 100 ? 'bg-teal-600 dark:bg-teal-500' : 'bg-teal-700 dark:bg-teal-400'
               }`}
               style={{ width: `${percent}%` }}
             />
@@ -247,29 +247,31 @@ export function PackingListModal({
             return (
               <div key={cat.id} className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="flex items-center gap-1.5 text-xs font-bold text-stone-900 uppercase tracking-wider">
-                    <Icon className="h-4 w-4 text-teal-700" />
+                  <h3 className="flex items-center gap-1.5 text-xs font-bold text-stone-900 dark:text-stone-100 uppercase tracking-wider">
+                    <Icon className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                     <span>{cat.title}</span>
                   </h3>
-                  <span className="text-[11px] font-semibold text-stone-500">
+                  <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
                     {catDone}/{cat.items.length}
                   </span>
                 </div>
-                <div className="space-y-1.5 rounded-xl border border-stone-200/80 bg-white p-2">
+                <div className="space-y-1.5 rounded-xl border border-stone-200/80 bg-white dark:border-stone-800 dark:bg-[#18202a] p-2">
                   {cat.items.map((item) => {
                     const isChecked = Boolean(checkedItems[item])
                     return (
                       <label
                         key={item}
                         className={`flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-xs transition outline-none focus-within:ring-2 focus-within:ring-teal-700/60 ${
-                          isChecked ? 'bg-teal-50/40 text-stone-400 line-through' : 'text-stone-800 hover:bg-stone-50'
+                          isChecked
+                            ? 'bg-teal-50/40 text-stone-400 line-through dark:bg-teal-950/20 dark:text-stone-500'
+                            : 'text-stone-800 hover:bg-stone-50 dark:text-stone-200 dark:hover:bg-[#1f2937]'
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => toggleItem(item)}
-                          className="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                          className="h-4 w-4 rounded border-stone-300 dark:border-stone-700 dark:bg-stone-800 text-teal-700 focus:ring-teal-600 cursor-pointer"
                         />
                         <span className="flex-1 select-none">{item}</span>
                       </label>
@@ -282,11 +284,11 @@ export function PackingListModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-stone-100 bg-white px-5 py-3">
+        <div className="flex items-center justify-between border-t border-stone-100 dark:border-stone-800/80 bg-white dark:bg-[#141920] px-5 py-3">
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-rose-600 transition outline-none focus-visible:ring-2 focus-visible:ring-rose-600"
+            className="flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-rose-600 dark:text-stone-400 dark:hover:text-rose-400 transition outline-none focus-visible:ring-2 focus-visible:ring-rose-600"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             <span>Reset Centang</span>
