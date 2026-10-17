@@ -19,6 +19,7 @@ type TutorialModalProps = {
   isOpen: boolean
   onClose: () => void
   onSelectPrompt?: (prompt: string) => void
+  onStartSpotlight?: () => void
 }
 
 type Step = {
@@ -127,7 +128,7 @@ const PROMPT_IDEAS = [
   },
 ]
 
-export function TutorialModal({ isOpen, onClose, onSelectPrompt }: TutorialModalProps) {
+export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotlight }: TutorialModalProps) {
   const [activeTab, setActiveTab] = useState<'tour' | 'prompts'>('tour')
   const [currentStep, setCurrentStep] = useState(0)
   const [dontShowAgain, setDontShowAgain] = useState(false)
@@ -205,31 +206,54 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt }: TutorialModal
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-stone-200 bg-white px-5 pt-3 dark:border-stone-800 dark:bg-[#141920]">
-          <button
-            type="button"
-            onClick={() => setActiveTab('tour')}
-            className={`flex items-center gap-2 border-b-2 px-4 pb-3 text-xs sm:text-sm font-semibold transition ${
-              activeTab === 'tour'
-                ? 'border-teal-700 text-teal-800 dark:border-teal-400 dark:text-teal-300'
-                : 'border-transparent text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200'
-            }`}
-          >
-            <Sparkles className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-            <span>Tur Cepat (4 Langkah)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('prompts')}
-            className={`flex items-center gap-2 border-b-2 px-4 pb-3 text-xs sm:text-sm font-semibold transition ${
-              activeTab === 'prompts'
-                ? 'border-teal-700 text-teal-800 dark:border-teal-400 dark:text-teal-300'
-                : 'border-transparent text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200'
-            }`}
-          >
-            <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <span>Contoh Prompt Siap Pakai</span>
-          </button>
+        <div className="flex items-center justify-between border-b border-stone-200 bg-white px-5 pt-3 dark:border-stone-800 dark:bg-[#141920]">
+          <div className="flex">
+            <button
+              type="button"
+              onClick={() => setActiveTab('tour')}
+              className={`flex items-center gap-2 border-b-2 px-4 pb-3 text-xs sm:text-sm font-semibold transition ${
+                activeTab === 'tour'
+                  ? 'border-teal-700 text-teal-800 dark:border-teal-400 dark:text-teal-300'
+                  : 'border-transparent text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200'
+              }`}
+            >
+              <Sparkles className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+              <span>Panduan Fitur</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('prompts')}
+              className={`flex items-center gap-2 border-b-2 px-4 pb-3 text-xs sm:text-sm font-semibold transition ${
+                activeTab === 'prompts'
+                  ? 'border-teal-700 text-teal-800 dark:border-teal-400 dark:text-teal-300'
+                  : 'border-transparent text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200'
+              }`}
+            >
+              <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span>Contoh Prompt</span>
+            </button>
+          </div>
+          {onStartSpotlight && (
+            <button
+              type="button"
+              onClick={() => {
+                if (dontShowAgain) {
+                  try {
+                    localStorage.setItem('rute_has_seen_tutorial', 'true')
+                  } catch {
+                    // Ignore storage error
+                  }
+                }
+                onStartSpotlight()
+              }}
+              className="hidden sm:inline-flex items-center gap-1.5 pb-2.5 text-xs font-semibold text-teal-700 hover:text-teal-900 transition dark:text-teal-400 dark:hover:text-teal-200"
+              title="Sorot langsung komponen di layar secara interaktif"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+              <span>Coba Tur Spotlight di Layar</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Body Content */}
@@ -341,6 +365,26 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt }: TutorialModal
           </label>
 
           <div className="flex items-center gap-2">
+            {onStartSpotlight && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (dontShowAgain) {
+                    try {
+                      localStorage.setItem('rute_has_seen_tutorial', 'true')
+                    } catch {
+                      // Ignore storage error
+                    }
+                  }
+                  onStartSpotlight()
+                }}
+                className="inline-flex sm:hidden items-center gap-1 rounded-xl border border-teal-200 bg-teal-50/80 px-2.5 py-2 text-xs font-semibold text-teal-700 hover:bg-teal-100 transition active:scale-95 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+                <span>Tur Layar</span>
+              </button>
+            )}
+
             {activeTab === 'tour' && currentStep > 0 && (
               <button
                 type="button"

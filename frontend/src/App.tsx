@@ -42,6 +42,7 @@ import { TravelMap } from './components/TravelMap'
 import { ExpensesView } from './components/ExpensesView'
 import { PackingListModal } from './components/PackingListModal'
 import { TutorialModal } from './components/TutorialModal'
+import { SpotlightTour } from './components/SpotlightTour'
 import type { ItineraryItem } from './components/DayCard'
 
 function resolveApiBase(): string {
@@ -270,6 +271,7 @@ export default function App() {
   const [showPreferences, setShowPreferences] = useState(false)
   const [isPackingModalOpen, setIsPackingModalOpen] = useState(false)
   const [isTutorialOpen, setIsTutorialOpen] = useState(false)
+  const [isSpotlightOpen, setIsSpotlightOpen] = useState(false)
   const [hasSeenTutorial, setHasSeenTutorial] = useState(() => {
     try {
       return Boolean(localStorage.getItem('rute_has_seen_tutorial'))
@@ -840,6 +842,7 @@ export default function App() {
         onLogout={() => void logout()}
         onOpenTrips={() => void loadTrips()}
         onOpenTutorial={() => setIsTutorialOpen(true)}
+        onOpenSpotlight={() => setIsSpotlightOpen(true)}
         isStartingSession={isStartingSession}
       />
 
@@ -1026,14 +1029,26 @@ export default function App() {
                 )}
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">Coba mulai dengan:</p>
-                  <button
-                    type="button"
-                    onClick={() => setIsTutorialOpen(true)}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 transition"
-                  >
-                    <HelpCircle className="h-3.5 w-3.5" />
-                    <span>Panduan Cepat</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsSpotlightOpen(true)}
+                      className="flex items-center gap-1 rounded-full bg-teal-50 dark:bg-teal-950/60 px-2.5 py-1 text-[11px] font-bold text-teal-800 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 border border-teal-200/80 dark:border-teal-800/60 transition shadow-xs active:scale-95"
+                      title="Mulai tur interaktif spotlight di layar"
+                    >
+                      <Sparkles className="h-3 w-3 text-amber-500" />
+                      <span>Tur Interaktif</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsTutorialOpen(true)}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-stone-600 dark:text-stone-300 hover:text-teal-800 dark:hover:text-teal-300 transition"
+                      title="Buka panduan lengkap & contoh prompt"
+                    >
+                      <HelpCircle className="h-3.5 w-3.5" />
+                      <span>Panduan</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-col gap-2">
                   {STARTER_PROMPTS.map(({ label, hint, prompt, Icon }) => (
@@ -1178,6 +1193,7 @@ export default function App() {
               </button>
             )}
             <form
+              data-tour="chat-composer"
               onSubmit={handleSubmit}
               className="flex items-end gap-2 rounded-2xl border border-stone-200 bg-stone-50/80 p-1.5 transition focus-within:border-teal-700 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-700/20 dark:border-stone-800 dark:bg-[#1a212b] dark:focus-within:bg-[#141920] dark:focus-within:border-teal-500"
             >
@@ -1270,6 +1286,7 @@ export default function App() {
 
             {/* Segmented tabs */}
             <nav
+              data-tour="workspace-tabs"
               className="flex w-full gap-1 self-start rounded-full bg-stone-100 dark:bg-[#1a212b] p-1 sm:w-auto"
               aria-label="Tampilan rencana"
             >
@@ -1277,6 +1294,7 @@ export default function App() {
                 <button
                   key={tab}
                   type="button"
+                  data-tour={tab === 'expenses' ? 'tab-expenses' : tab === 'map' ? 'tab-map' : undefined}
                   onClick={() => {
                     setActiveTab(tab)
                     if (tab === 'overview') setSelectedDay(null)
@@ -1548,11 +1566,23 @@ export default function App() {
           setIsTutorialOpen(false)
           setHasSeenTutorial(true)
         }}
+        onStartSpotlight={() => {
+          setIsTutorialOpen(false)
+          setHasSeenTutorial(true)
+          setIsSpotlightOpen(true)
+        }}
         onSelectPrompt={(prompt) => {
           setActiveTab('chat')
           setHasSeenTutorial(true)
           void sendMessage(prompt)
         }}
+      />
+
+      <SpotlightTour
+        isOpen={isSpotlightOpen}
+        onClose={() => setIsSpotlightOpen(false)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       {showTrips && (

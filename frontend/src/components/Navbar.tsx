@@ -17,6 +17,7 @@ import {
   Sun,
   Moon,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react'
 
 type NavbarUser = { email: string; display_name: string }
@@ -39,6 +40,7 @@ type NavbarProps = {
   onLogout?: () => void
   onOpenTrips?: () => void
   onOpenTutorial?: () => void
+  onOpenSpotlight?: () => void
   isStartingSession?: boolean
 }
 
@@ -64,6 +66,7 @@ export function Navbar({
   onLogout,
   onOpenTrips,
   onOpenTutorial,
+  onOpenSpotlight,
   isStartingSession,
 }: NavbarProps) {
   const [searchVal, setSearchVal] = useState('')
@@ -134,7 +137,7 @@ export function Navbar({
       </form>
 
       {/* Actions */}
-      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+      <div data-tour="navbar-actions" className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         {hasItinerary && onShareWhatsApp && (
           <button
             type="button"
@@ -378,6 +381,20 @@ export function Navbar({
               >
                 <Settings2 className="h-4 w-4 text-stone-500 dark:text-stone-400" /> Kelola preferensi
               </button>
+
+              {onOpenSpotlight && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMenu(false)
+                    onOpenSpotlight()
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-[#222c3a]"
+                >
+                  <Sparkles className="h-4 w-4 text-amber-500" /> Tur Interaktif (Spotlight)
+                </button>
+              )}
 
               {onOpenTutorial && (
                 <button
