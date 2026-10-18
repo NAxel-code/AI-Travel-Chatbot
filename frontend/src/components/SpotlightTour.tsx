@@ -218,6 +218,15 @@ export function SpotlightTour({
     setPopoverPos({ top, left })
   }, [targetRect, step])
 
+  const handleFinish = useCallback(() => {
+    try {
+      localStorage.setItem('rute_has_completed_spotlight', 'true')
+    } catch {
+      // Ignore storage error
+    }
+    onClose()
+  }, [onClose])
+
   // Keyboard navigation
   useEffect(() => {
     if (!isOpen) return
@@ -238,16 +247,7 @@ export function SpotlightTour({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, currentStep])
-
-  function handleFinish() {
-    try {
-      localStorage.setItem('rute_has_completed_spotlight', 'true')
-    } catch {
-      // Ignore storage error
-    }
-    onClose()
-  }
+  }, [isOpen, currentStep, handleFinish])
 
   function handleNext() {
     if (currentStep < SPOTLIGHT_STEPS.length - 1) {

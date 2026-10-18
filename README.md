@@ -1,249 +1,224 @@
 # Rute — AI Travel Planner
 
-Perencana perjalanan berbahasa Indonesia yang mengubah percakapan menjadi itinerary multi-hari. Aplikasi mencari lokasi nyata melalui OpenStreetMap, memeriksa prakiraan cuaca yang tersedia, menyimpan preferensi pengguna, dan memungkinkan penyesuaian per hari melalui chat.
+[![CI](https://github.com/NAxel-code/AI-Travel-Chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/NAxel-code/AI-Travel-Chatbot/actions/workflows/ci.yml)
+[![Node Version](https://img.shields.io/badge/node-%3E%3D24-brightgreen.svg)](https://nodejs.org/)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-orange.svg)](https://workers.cloudflare.com/)
+[![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8.svg)](https://tailwindcss.com/)
 
-## Tampilan UI
+Perencana perjalanan cerdas berbahasa Indonesia yang mengubah percakapan natural menjadi itinerary multi-hari yang terstruktur, realistis, dan siap jalan. Didukung oleh **Google Gemini AI**, basis data geospasial **Google Maps & OpenStreetMap**, prakiraan cuaca **Open-Meteo**, kalkulator transparansi anggaran, serta penyimpanan cloud **Cloudflare D1 & KV**.
 
-![Tampilan desktop Rute AI Travel Planner](docs/rute-ui.png)
+---
 
-*Tampilan awal desktop: chat dan status proses berada di panel kiri, sedangkan itinerary terstruktur, ekspor PDF, dan kalender berada di panel utama. Layout berubah menjadi vertikal pada perangkat bergerak.*
+## 📸 Tampilan Antarmuka Terbaru (UI Showcase)
 
-## Hasil akhir terverifikasi
+Aplikasi dirancang dengan estetika editorial **Hallmark** dan panduan **UI-UX-Pro-Max** bebas dari *AI-slop*, menghadirkan pengalaman taktil yang nyaman baik di mode terang maupun gelap.
 
-| Pengukuran lokal | Hasil |
-|---|---:|
-| Header SSE diterima | 56 ms |
-| Status proses pertama tampil | 61 ms |
-| Itinerary tersimpan | 7,5 detik |
-| Jawaban final + `[DONE]` | 8,9 detik |
-| Batas maksimum request AI | 60 detik |
+### 1. Tema Terang (Sand & Sea Palette)
+![Tampilan Mode Terang Rute AI Travel Planner](docs/rute-ui.png)
+*Tampilan desktop mode terang (`#faf8f4`): Navigasi aksi cepat, kartu harian terstruktur dengan rating Google Maps asli, navigasi 1-klik, dan panel konsultasi asisten AI.*
 
-Pengukuran menggunakan permintaan itinerary Bandung tiga hari pada environment lokal. Waktu aktual dapat berubah mengikuti jaringan, provider data, dan beban Gemini.
+### 2. Tema Gelap (Obsidian Dark Palette)
+![Tampilan Mode Gelap Rute AI Travel Planner](docs/rute-ui-dark.png)
+*Tampilan desktop mode gelap obsidian (`#0c0f12`): Kontras tinggi (4.5:1+), ramah mata untuk perencanaan malam hari, dilengkapi indikator memori dan ekspor laporan terpadu.*
 
-## Kemampuan
+---
 
-- Jawaban Gemini dan status proses aman dikirim bertahap melalui Server-Sent Events (SSE); stream dibuka sebelum model dipanggil dan request AI dibatasi 60 detik agar UI tidak menggantung. Raw chain-of-thought internal tidak diekspos.
-- Tanggal lampau otomatis digeser ke kejadian terdekat di masa depan dengan durasi perjalanan tetap.
-- Itinerary terstruktur tersimpan di Cloudflare D1; riwayat chat 30 hari tersimpan di KV.
-- Pencarian tempat nyata melalui Nominatim/OpenStreetMap dengan cache 24 jam.
-- Prakiraan hingga 15 hari melalui Open-Meteo dengan cache 1 jam.
-- AI dapat membuat itinerary baru atau mengganti satu hari tertentu.
-- Preferensi jangka panjang dapat dilihat dan dihapus pengguna.
-- Ekspor kalender `.ics` menggunakan waktu aktivitas dan durasi 90 menit; itinerary dapat dicetak atau disimpan sebagai PDF melalui browser.
-- Session token anonim, pembatasan origin, validasi input, dan rate limit dasar melindungi data dan kuota model.
-- Tampilan responsif untuk desktop dan perangkat bergerak.
+## ✨ Fitur & Kemampuan Utama
 
-Aplikasi tidak menyediakan harga penerbangan, hotel, tiket, jam buka, atau ketersediaan real-time. Informasi tersebut harus diverifikasi sebelum perjalanan.
+### 1. Asisten AI Konsultatif & Streaming Cepat
+- **Server-Sent Events (SSE)**: Respon Gemini dan indikator tahapan proses (*grounding tempat, estimasi cuaca, kalkulasi rute*) dialirkan secara bertahap dalam hitungan milidetik tanpa membekukan antarmuka.
+- **Deteksi Konteks Cerdas**: Mengenali destinasi, durasi hari, peserta, dan preferensi gaya traveling (hemat, kuliner halal, ramah anak, backpacker).
+- **Penyesuaian Hari Tertentu**: Pengguna dapat meminta perubahan spesifik per hari (misal: *"Ubah jadwal hari ke-2 untuk aktivitas indoor karena hujan"*).
 
-## Arsitektur
+### 2. Grounding Tempat Nyata & Rating Google Maps
+- **Data Geospasial Terkurasi**: Ratusan tempat wisata dan kuliner nyata di Indonesia dengan koordinat lintang/bujur presisi.
+- **Rating & Ulasan Publik**: Setiap kartu aktivitas menampilkan bintang rating asli (*Google Maps*) dan jumlah ulasan.
+- **Navigasi 1-Klik**: Tombol langsung untuk membuka rute *turn-by-turn* di aplikasi Google Maps ponsel.
+- **Anti-Repetisi Kuliner**: Menjamin variasi tempat makan yang berbeda di setiap waktu makan tanpa duplikasi membosankan.
+
+### 3. Toggle Tema Terang & Gelap (Obsidian Palette)
+- **Dua Palet Warna Terkurasi**: *Sand & Sea* (Alabaster hangat) dan *Obsidian Dark* (`#0c0f12`, `#141920`, `#1a212b`).
+- **Persistensi Otomatis**: Mendeteksi preferensi sistem pengguna (`prefers-color-scheme`) dan menyimpan pilihan manual di `localStorage`.
+- **Rasio Kontras WCAG AA**: Memenuhi standar keterbacaan minimal 4.5:1 di seluruh kartu, tombol, teks, dan modal.
+
+### 4. Tur Spotlight Interaktif di Layar (*On-Screen Walkthrough*)
+- **Native Spotlight Cutout**: Panduan langsung di layar menggunakan efek *box-shadow cutout* dinamis dan *pulsing beacon* tanpa library pihak ketiga yang berat.
+- **5 Langkah Panduan**:
+  1. *Chat Composer AI* — Konsultasi dan ceritakan liburan impian.
+  2. *Workspace Terpadu* — Membaca jadwal harian dan jam aktivitas.
+  3. *Kalkulator Biaya* — Transparansi anggaran (penginapan, sewa motor, makan, tiket).
+  4. *Peta Rute* — Visualisasi jalur geografis dan navigasi turn-by-turn.
+  5. *Aksi Offline* — Ekspor dokumen PDF, Kalender (.ics), dan WhatsApp.
+- **Mobile Responsive**: Otomatis berpindah tab mobile sebelum menyorot elemen agar target tidak terpotong.
+- **Aksesibilitas Penuh**: Navigasi keyboard (`Esc`, `Enter`, `←`/`→`) dan status selesai tersimpan.
+
+### 5. Kalkulator Biaya & Transparansi Anggaran
+- Rincian estimasi biaya perjalanan: tiket transportasi PP, penginapan per malam, sewa motor & BBM harian, konsumsi 3x sehari, dan tiket masuk wisata.
+- Pilihan mode budget dinamis: **Hemat**, **Standar**, dan **Nyaman**, serta penyesuaian jumlah peserta secara instan.
+
+### 6. Bawa Perjalanan Offline & Berbagi
+- **Laporan Perjalanan PDF**: Ekspor dokumen resmi siap cetak lengkap dengan ringkasan rute, kontak darurat, dan estimasi biaya.
+- **Sinkronisasi Kalender (.ics)**: Ekspor jadwal aktivitas terstruktur (durasi 90 menit) langsung ke Google Calendar atau Apple Calendar sesuai zona waktu destinasi (WIB/WITA/WIT).
+- **1-Klik Berbagi WhatsApp**: Memformat rute harian menjadi pesan chat rapi siap kirim ke rekan seperjalanan.
+- **Checklist Bawaan (Packing List)**: Rekomendasi barang bawaan dinamis yang disesuaikan dengan jenis destinasi (pantai vs gunung) dan durasi hari.
+
+### 7. Akun & Multi-Session Terpadu
+- Mendukung mode anonim instan serta login/register akun untuk menyimpan riwayat perjalanan multi-perangkat di Cloudflare D1.
+
+---
+
+## 🏗️ Arsitektur Sistem
 
 ```mermaid
-graph LR
-  Browser[React + Vite] -->|JSON + SSE| Worker[Cloudflare Worker + Hono]
-  Worker --> Gemini[Google Gemini]
-  Worker --> D1[(D1: itinerary, preferensi, rate limit)]
-  Worker --> KV[(KV: riwayat dan cache)]
-  Worker --> OSM[Nominatim / OpenStreetMap]
-  Worker --> Weather[Open-Meteo]
+flowchart TD
+    User["Browser (Desktop / Mobile)"] -->|Vite + React 19| SPA["Frontend SPA"]
+    SPA -->|JSON API + SSE Stream| Worker["Cloudflare Worker (Hono API)"]
+    
+    subgraph Cloud Infrastructure
+        Worker --> Gemini["Google Gemini 2.5 Flash Lite\n(Fallback: Gemini 2.8 Flash)"]
+        Worker --> D1[("Cloudflare D1 Database\n(Sessions, Itineraries, Users, Ratings)")]
+        Worker --> KV[("Cloudflare KV\n(Chat History & Geo Caches)")]
+        Worker --> OSM["OpenStreetMap & Nominatim\n(Geocoding)"]
+        Worker --> Weather["Open-Meteo\n(Prakiraan Cuaca 15 Hari)"]
+    end
+
+    subgraph CI/CD Automation
+        GH["GitHub Repository"] -->|Push / PR| GHA["GitHub Actions CI"]
+        GHA -->|Lint + Typecheck + Tests| Verified["Artifact Terverifikasi"]
+        GH -->|Deploy Frontend| Vercel["Vercel Edge Network"]
+    end
 ```
 
-Alur chat:
+---
 
-1. Browser meminta session ID dan token acak dari `POST /api/session`.
-2. Worker menyimpan hash token; token mentah hanya disimpan di browser.
-3. Pesan, riwayat, preferensi, dan itinerary aktif dikirim ke Gemini.
-4. Gemini dapat mencari tempat/cuaca, menyimpan preferensi, membuat itinerary, atau mengganti satu hari. Pencarian tempat dibatasi dua kali dan function-calling diarahkan dari lookup ke penyimpanan dalam maksimum empat putaran tool per pesan.
-5. D1 menyimpan perubahan secara atomik melalui `DB.batch()` dan frontend mengambil ulang itinerary.
-
-## Struktur penting
+## 📁 Struktur Direktori
 
 ```text
-backend/
-  migrations/                          migrasi database lama
-  src/ai.ts                            prompt dan deklarasi tool
-  src/chat.ts                          Gemini, fallback, SSE, orkestrasi tool
-  src/agent-tools.ts                   eksekusi dan penyimpanan tool
-  src/travel-data.ts                   OpenStreetMap dan Open-Meteo
-  src/session.ts                       session, history, preference, rate limit
-  src/validation.ts                    validasi request dan argumen model
-  schema.sql                           reset skema untuk development baru
-frontend/
-  src/App.tsx                          chat, itinerary, preferensi, status UI
-  src/lib/sse.ts                       parser SSE tahan pemisahan network chunk
-  src/lib/calendar.ts                  generator iCalendar
-  src/components/Markdown.tsx          renderer Markdown tanpa raw HTML
+├── .github/
+│   └── workflows/
+│       └── ci.yml                     # Pipeline CI otomatis (Backend & Frontend)
+├── backend/
+│   ├── migrations/                    # File migrasi database D1
+│   ├── src/
+│   │   ├── agent-tools.ts             # Definisi & eksekusi tool agen Gemini
+│   │   ├── ai.ts                      # Konfigurasi model Gemini, system prompt, & function schemas
+│   │   ├── auth.ts                    # Handler registrasi, login, logout, & akun pengguna
+│   │   ├── chat.ts                    # Orkestrasi SSE chat, model fallback, & tool calling
+│   │   ├── index.ts                   # Entrypoint router Hono & middleware CORS
+│   │   ├── itinerary.ts               # Handler pengambilan & manajemen itinerary D1
+│   │   ├── session.ts                 # Manajemen sesi, token hash, rate limiter, & preferensi
+│   │   ├── travel-data.ts             # Kurasi dataset tempat wisata Indonesia, OSM, & cuaca
+│   │   ├── types.ts                   # Definisi tipe TypeScript backend
+│   │   └── validation.ts              # Validasi schema, UUID, & format tanggal
+│   ├── schema.sql                     # Skema inisialisasi basis data Cloudflare D1
+│   └── wrangler.toml                  # Konfigurasi binding Cloudflare Workers
+├── docs/
+│   ├── rute-ui.png                    # Bukti tampilan terbaru (Mode Terang)
+│   └── rute-ui-dark.png               # Bukti tampilan terbaru (Mode Gelap Obsidian)
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── AuthModal.tsx          # Modal login & registrasi akun
+│   │   │   ├── DayCard.tsx            # Kartu jadwal harian, foto, rating, & link Google Maps
+│   │   │   ├── ExpensesView.tsx       # Tampilan kalkulator biaya & mode budget
+│   │   │   ├── Markdown.tsx           # Renderer markdown aman bebas raw HTML
+│   │   │   ├── Navbar.tsx             # Bilah navigasi, toggle tema, & tombol aksi
+│   │   │   ├── PackingListModal.tsx   # Modal interaktif checklist barang bawaan
+│   │   │   ├── SpotlightTour.tsx      # Walkthrough spotlight interaktif di layar
+│   │   │   ├── TravelMap.tsx          # Peta Leaflet/Google Maps dengan isolasi rute per hari
+│   │   │   └── TutorialModal.tsx      # Modal panduan komprehensif & contoh prompt
+│   │   ├── lib/
+│   │   │   ├── calendar.ts            # Parser & generator RFC iCalendar (.ics)
+│   │   │   ├── sse.ts                 # Parser Server-Sent Events tahan chunk terpotong
+│   │   │   └── travelReport.ts        # Generator dokumen PDF laporan perjalanan
+│   │   ├── App.tsx                    # Komponen utama state & integrasi workspace
+│   │   └── index.css                  # Tema Tailwind CSS, token Obsidian, & Sand & Sea
+│   └── vercel.json                    # Konfigurasi routing & serverless build Vercel
+└── README.md
 ```
 
-## Prasyarat
+---
 
-- Node.js 24+
-- Akun Cloudflare dan Google Gemini API key
-- Dua terminal untuk menjalankan backend dan frontend
+## ⚡ Prasyarat & Menjalankan Lokal
 
-## Menjalankan lokal
+### Prasyarat
+- **Node.js**: Versi 24 atau lebih baru
+- **Cloudflare Wrangler CLI**: Untuk manajemen basis data D1 lokal
+- **Google Gemini API Key**: Kunci API untuk pemanggilan LLM
 
-### 1. Backend
-
+### 1. Menjalankan Backend (Cloudflare Worker)
 ```powershell
-Set-Location backend
+cd backend
 npm install
 Copy-Item .dev.vars.example .dev.vars
-# Isi GEMINI_API_KEY di .dev.vars
+# Isi GEMINI_API_KEY pada file .dev.vars
+
+# Inisialisasi skema basis data lokal
 npx wrangler d1 execute travel-db --local --file=schema.sql
+
+# Jalankan server development (Port 8787)
 npm run dev
 ```
 
-> **Peringatan:** `schema.sql` adalah reset development. Seluruh tabel aplikasi akan dihapus beserta datanya sebelum dibuat ulang. Jangan jalankan terhadap database yang datanya ingin dipertahankan.
-
-Worker berjalan di `http://localhost:8787`.
-
-Untuk database lama yang memakai skema awal, jangan jalankan `schema.sql`. Terapkan migrasi sekali. Migrasi memberi itinerary lama timezone `UTC`; buat ulang itinerary lama sebelum ekspor kalender jika zona tujuan berbeda.
-
+### 2. Menjalankan Frontend (React + Vite)
 ```powershell
-npx wrangler d1 execute travel-db --local --file=migrations/0001_secure_sessions_and_grounded_places.sql
-```
-
-Gunakan `--remote` sebagai pengganti `--local` untuk database deployment lama.
-
-### 2. Frontend
-
-```powershell
-Set-Location frontend
+cd frontend
 npm install
 Copy-Item .env.example .env.local
+
+# Jalankan dev server (Port 5173)
 npm run dev
 ```
+Buka browser di `http://localhost:5173`. Aplikasi otomatis terhubung ke backend lokal `http://localhost:8787/api`.
 
-Frontend berjalan di `http://localhost:5173`. Nilai default `VITE_API_BASE` sudah menunjuk ke backend lokal.
+---
 
-### Verifikasi
+## 🧪 Verifikasi & Pengujian Mutu
 
-```powershell
-# backend
-npm run check
-npm test
-npx wrangler deploy --dry-run
-
-# frontend
-npm run lint
-npm test
-npm run build
-```
-
-Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan backend dan frontend yang sama pada setiap pull request serta setiap push ke `main`.
-
-## Konfigurasi
-
-### Backend
-
-| Nilai | Lokasi | Keterangan |
-|---|---|---|
-| `GEMINI_API_KEY` | `backend/.dev.vars` / Wrangler secret | Wajib untuk chat. |
-| `FRONTEND_ORIGIN` | `backend/wrangler.toml` | Origin yang diizinkan CORS. Beberapa origin dipisahkan koma. |
-| D1 `database_id` | `backend/wrangler.toml` | Ganti placeholder sebelum deploy. |
-| KV `id` | `backend/wrangler.toml` | Ganti placeholder sebelum deploy. |
-
-Jangan commit `.dev.vars`. Untuk produksi:
+Sebelum melakukan *push*, jalankan seluruh rangkaian uji otomatis berikut:
 
 ```powershell
-npx wrangler secret put GEMINI_API_KEY
+# Pengecekan Backend
+cd backend
+npm run check                          # TypeScript type check (tsc --noEmit)
+npm test                               # Unit tests (Auth & Input Validation)
+npx wrangler deploy --dry-run          # Verifikasi bundle Cloudflare Worker
+
+# Pengecekan Frontend
+cd ../frontend
+npm run lint                           # Linter cepat (oxlint)
+npm test                               # Unit tests (SSE Stream Parser & Calendar Generator)
+npm run build                          # Build kompilasi produksi Vite
 ```
 
-### Frontend
+Seluruh pengujian di atas juga dijalankan secara otomatis di lingkungan GitHub Actions pada setiap *pull request* dan *push ke branch main*.
 
-| Nilai | Lokasi | Keterangan |
-|---|---|---|
-| `VITE_API_BASE` | `frontend/.env.local` / platform build env | URL Worker dengan suffix `/api`, tanpa trailing slash. |
+---
 
-Contoh produksi: `VITE_API_BASE=https://travel-planner.example.workers.dev/api`.
+## 🌐 Daftar Endpoint API
 
-## Skema data
-
-- `sessions`: ID session, hash access token, waktu dibuat.
-- `rate_limits`: counter fixed-window atomik untuk pembatasan session dan chat.
-- `user_preferences`: satu nilai per kategori/session melalui constraint `UNIQUE(session_id, preference_category)`.
-- `itineraries`: tujuan, rentang tanggal, dan zona waktu IANA.
-- `itinerary_items`: hari, waktu, aktivitas, kategori, alamat, koordinat, dan URL sumber OpenStreetMap.
-
-Pembuatan itinerary dan penggantian satu hari menggunakan batch D1 agar tidak meninggalkan data parsial.
-
-## API
-
-Semua endpoint selain `POST /api/session` memerlukan header `X-Session-Token`.
+Semua endpoint privat mewajibkan header `X-Session-Token` atau `X-Auth-Token`.
 
 | Method | Endpoint | Fungsi |
 |---|---|---|
-| `GET` | `/` | Health response JSON. |
-| `POST` | `/api/session` | Membuat session; menerima `session_id` opsional untuk klaim satu kali session lama. |
-| `POST` | `/api/chat` | Mengirim `{ session_id, message }`; respons SSE. |
-| `GET` | `/api/history/:session_id` | Mengambil maksimum 20 pesan terakhir. |
-| `GET` | `/api/itinerary/:session_id` | Mengambil itinerary terbaru. |
-| `GET` | `/api/preferences/:session_id` | Mengambil preferensi tersimpan. |
-| `DELETE` | `/api/preferences/:session_id/:category` | Menghapus satu preferensi. |
+| `GET` | `/` | Health check layanan API. |
+| `POST` | `/api/session` | Membuat sesi baru atau mengklaim sesi anonim. |
+| `POST` | `/api/auth/register` | Mendaftarkan akun pengguna baru. |
+| `POST` | `/api/auth/login` | Autentikasi akun & mendapatkan auth token. |
+| `POST` | `/api/auth/logout` | Mengakhiri sesi akun pengguna. |
+| `GET` | `/api/auth/me` | Mengambil profil akun pengguna aktif. |
+| `GET` | `/api/trips` | Mengambil riwayat perjalanan tersimpan milik akun. |
+| `POST` | `/api/chat` | Mengirim pesan konsultasi; merespons via Server-Sent Events (SSE). |
+| `GET` | `/api/history/:session_id` | Mengambil riwayat percakapan sesi (maks. 20 pesan). |
+| `GET` | `/api/itinerary/:session_id` | Mengambil data itinerary terstruktur terbaru. |
+| `GET` | `/api/preferences/:session_id` | Mengambil preferensi yang diingat sistem. |
+| `DELETE` | `/api/preferences/:session_id/:category` | Menghapus preferensi tertentu dari memori. |
 
-Event `/api/chat`:
+---
 
-```text
-data: {"type":"progress","stage":"places","message":"Mencari tempat nyata dan lokasinya…"}
+## 📄 Lisensi & Batasan
 
-data: {"type":"text","text":"..."}
-
-data: {"type":"system","message":"..."}
-
-data: {"type":"function_call","name":"build_itinerary","status":"success"}
-
-data: {"type":"error","message":"..."}
-
-data: [DONE]
-```
-
-Payload event selalu dibuat dengan `JSON.stringify`; parser frontend mempertahankan event yang terpotong di antara network chunk dan berhenti setelah `[DONE]`.
-
-## Model dan fallback
-
-Urutan model saat ini:
-
-1. `gemini-3.5-flash-lite` — model utama berlatensi rendah yang tersedia untuk pengguna baru.
-2. `gemini-3.8-flash` — fallback untuk permintaan yang gagal pada model utama.
-
-Error sementara `429`/`503` dicoba ulang sekali lalu berpindah model. Model `404` dilewati. Error autentikasi, izin, safety, atau request invalid langsung dikembalikan dan tidak disamarkan sebagai fallback.
-
-## Deploy
-
-1. Buat D1 dan KV produksi, lalu ganti kedua placeholder ID di `backend/wrangler.toml`.
-2. Ubah `FRONTEND_ORIGIN` menjadi origin frontend produksi.
-3. Terapkan `schema.sql` hanya pada database produksi baru.
-4. Simpan `GEMINI_API_KEY` sebagai secret dan deploy Worker.
-5. Set `VITE_API_BASE` di platform frontend, lalu build `frontend/dist`.
-
-```powershell
-Set-Location backend
-npx wrangler d1 create travel-db
-npx wrangler kv namespace create CHAT_HISTORY
-npx wrangler d1 execute travel-db --remote --file=schema.sql
-npx wrangler secret put GEMINI_API_KEY
-npm run deploy
-
-Set-Location ..\frontend
-npm run build
-```
-
-## Batas keamanan dan layanan eksternal
-
-- Session saat ini bersifat anonim, bukan akun pengguna. Token melindungi session yang diketahui, tetapi aplikasi publik berkuota tinggi sebaiknya menambahkan login atau Cloudflare Turnstile.
-- Rate limit menggunakan counter fixed-window atomik di D1 (12 pesan/session/menit dan 30 pesan/IP/menit). Ini perlindungan dasar; deployment berkuota tinggi tetap sebaiknya memakai gateway/Turnstile dan kontrol abuse khusus.
-- Public Nominatim memiliki batas absolut 1 request/detik dan ditujukan untuk penggunaan ringan. Hasil dicache 24 jam. Untuk produksi bervolume, gunakan instance Nominatim sendiri atau provider geocoding komersial sesuai [usage policy OSMF](https://operations.osmfoundation.org/policies/nominatim/).
-- Open-Meteo tanpa API key ditujukan untuk penggunaan non-komersial; periksa paket/lisensi yang sesuai sebelum penggunaan komersial. Lihat [dokumentasi Open-Meteo](https://open-meteo.com/en/docs/).
-
-## Troubleshooting
-
-| Gejala | Tindakan |
-|---|---|
-| `no such column: access_token_hash` | Terapkan migrasi untuk database lama atau reset database development dengan `schema.sql`. |
-| Request ditolak CORS | Samakan `FRONTEND_ORIGIN` dengan origin browser, termasuk port. |
-| Frontend tetap memanggil localhost | Set `VITE_API_BASE` sebelum `npm run build`. |
-| Status 401 setelah upgrade | Browser otomatis membuat session baru jika token lama tidak dapat diklaim. |
-| Status 429 | Tunggu waktu pada header `Retry-After`; jangan menambah fallback model. |
-| Chat berhenti di “Menghubungkan” | Pastikan backend terbaru berjalan; SSE seharusnya membuka progress dalam hitungan milidetik dan menghentikan request maksimal setelah 60 detik. |
-| Model mengembalikan 404 | Gunakan kandidat aktif di `backend/src/chat.ts`; konfigurasi saat ini memakai `gemini-3.5-flash-lite` lalu `gemini-3.8-flash`. |
-| Data tempat/cuaca gagal | Tool akan memberi hasil error ke Gemini; periksa koneksi dan batas provider. |
+- **Keamanan & Rate Limiting**: Dilengkapi pembatasan frekuensi pesan (*fixed-window rate limiting*) di D1 (12 pesan/sesi/menit).
+- **Data Eksternal**: Koordinat dan prakiraan cuaca dicache secara cerdas di Cloudflare KV untuk mematuhi kebijakan penggunaan wajar (*fair use policy*) Nominatim OpenStreetMap dan Open-Meteo.
+- **Verifikasi Real-Time**: Harga tiket masuk, ketersediaan hotel, jam operasional, dan tiket wahana dapat berubah sewaktu-waktu sesuai kondisi lapangan dan dianjurkan diverifikasi kembali sebelum keberangkatan.
