@@ -12,6 +12,7 @@ import {
   MapPin,
   Share2,
 } from 'lucide-react'
+import { useLanguage } from '../lib/i18n'
 
 export type TabType = 'chat' | 'overview' | 'map' | 'expenses'
 
@@ -109,12 +110,66 @@ export function SpotlightTour({
   activeTab,
   setActiveTab,
 }: SpotlightTourProps) {
+  const { t } = useLanguage()
+
+  const steps: TourStep[] = [
+    {
+      id: 'composer',
+      targetSelector: '[data-tour="chat-composer"]',
+      tab: 'chat',
+      placement: 'top',
+      title: t('spotlightStep1Title'),
+      description: t('spotlightStep1Desc'),
+      Icon: MessageSquare,
+      badgeText: t('spotlightStepBadge', { step: 1 }),
+    },
+    {
+      id: 'workspace',
+      targetSelector: '[data-tour="workspace-tabs"]',
+      tab: 'overview',
+      placement: 'bottom',
+      title: t('spotlightStep2Title'),
+      description: t('spotlightStep2Desc'),
+      Icon: Calendar,
+      badgeText: t('spotlightStepBadge', { step: 2 }),
+    },
+    {
+      id: 'expenses',
+      targetSelector: '[data-tour="tab-expenses"]',
+      tab: 'expenses',
+      placement: 'bottom',
+      title: t('spotlightStep3Title'),
+      description: t('spotlightStep3Desc'),
+      Icon: Wallet,
+      badgeText: t('spotlightStepBadge', { step: 3 }),
+    },
+    {
+      id: 'map',
+      targetSelector: '[data-tour="tab-map"]',
+      tab: 'map',
+      placement: 'bottom',
+      title: t('spotlightStep4Title'),
+      description: t('spotlightStep4Desc'),
+      Icon: MapPin,
+      badgeText: t('spotlightStepBadge', { step: 4 }),
+    },
+    {
+      id: 'actions',
+      targetSelector: '[data-tour="navbar-actions"]',
+      placement: 'bottom',
+      title: t('spotlightStep5Title'),
+      description: t('spotlightStep5Desc'),
+      Icon: Share2,
+      badgeText: t('spotlightStepBadge', { step: 5 }),
+    },
+  ]
+
   const [currentStep, setCurrentStep] = useState(0)
   const [targetRect, setTargetRect] = useState<Rect | null>(null)
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number }>({ top: 100, left: 100 })
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  const step = SPOTLIGHT_STEPS[currentStep]
+  const step = steps[currentStep]
 
   // Switch tab if step requires it (important for mobile split-screen)
   useEffect(() => {
@@ -235,7 +290,7 @@ export function SpotlightTour({
       if (e.key === 'Escape') {
         handleFinish()
       } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
-        if (currentStep < SPOTLIGHT_STEPS.length - 1) {
+        if (currentStep < steps.length - 1) {
           setCurrentStep((prev) => prev + 1)
         } else {
           handleFinish()
@@ -247,10 +302,10 @@ export function SpotlightTour({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, currentStep, handleFinish])
+  }, [isOpen, currentStep, handleFinish, steps.length])
 
   function handleNext() {
-    if (currentStep < SPOTLIGHT_STEPS.length - 1) {
+    if (currentStep < steps.length - 1) {
       setCurrentStep((prev) => prev + 1)
     } else {
       handleFinish()
@@ -326,14 +381,14 @@ export function SpotlightTour({
 
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
-              {currentStep + 1} / {SPOTLIGHT_STEPS.length}
+              {currentStep + 1} / {steps.length}
             </span>
             <button
               type="button"
               onClick={handleFinish}
               className="grid h-8 w-8 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-[#1e2733] dark:hover:text-stone-200 outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
-              title="Lewati / Tutup tur"
-              aria-label="Tutup tur"
+              title={t('spotlightSkip')}
+              aria-label={t('spotlightSkip')}
             >
               <X className="h-4 w-4" />
             </button>
@@ -354,12 +409,12 @@ export function SpotlightTour({
         <div className="flex items-center justify-between gap-2 border-t border-stone-100 dark:border-stone-800/80 pt-3">
           {/* Step dots */}
           <div className="flex items-center gap-1.5">
-            {SPOTLIGHT_STEPS.map((s, idx) => (
+            {steps.map((s, idx) => (
               <button
                 key={s.id}
                 type="button"
                 onClick={() => setCurrentStep(idx)}
-                aria-label={`Buka ${s.title}`}
+                aria-label={`Step ${idx + 1}: ${s.title}`}
                 className={`h-2 rounded-full transition-all duration-200 ${
                   currentStep === idx
                     ? 'w-6 bg-teal-700 dark:bg-teal-400'
@@ -377,7 +432,7 @@ export function SpotlightTour({
                 onClick={handleFinish}
                 className="px-2.5 py-1.5 text-xs font-semibold text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200 transition"
               >
-                Lewati
+                {t('spotlightSkip')}
               </button>
             ) : (
               <button
@@ -386,7 +441,7 @@ export function SpotlightTour({
                 className="flex items-center gap-1 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-[#1a212b] px-3 py-1.5 text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-[#222c38] transition active:scale-95"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Kembali</span>
+                <span className="hidden sm:inline">{t('spotlightPrev')}</span>
               </button>
             )}
 
@@ -395,8 +450,8 @@ export function SpotlightTour({
               onClick={handleNext}
               className="flex items-center gap-1.5 rounded-xl bg-teal-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-teal-800 active:scale-95 shadow-xs transition dark:bg-teal-600 dark:hover:bg-teal-700"
             >
-              <span>{currentStep === SPOTLIGHT_STEPS.length - 1 ? 'Selesai' : 'Lanjut'}</span>
-              {currentStep === SPOTLIGHT_STEPS.length - 1 ? (
+              <span>{currentStep === steps.length - 1 ? t('spotlightFinish') : t('spotlightNext')}</span>
+              {currentStep === steps.length - 1 ? (
                 <CheckCircle2 className="h-3.5 w-3.5" />
               ) : (
                 <ChevronRight className="h-3.5 w-3.5" />

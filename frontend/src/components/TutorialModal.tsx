@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Lightbulb,
 } from 'lucide-react'
+import { useLanguage } from '../lib/i18n'
 
 type TutorialModalProps = {
   isOpen: boolean
@@ -34,7 +35,7 @@ type Step = {
   previewIconBg: string
 }
 
-const STEPS: Step[] = [
+const STEPS_ID: Step[] = [
   {
     id: 1,
     title: 'Chat AI Pintar',
@@ -62,7 +63,7 @@ const STEPS: Step[] = [
     highlightTips: [
       'Klik tab "Peta" untuk melihat jalur rute dan lokasi wisata terdekat.',
       'Klik kartu hari untuk fokus ke aktivitas hari tersebut.',
-      'Ingin ubah satu hari saja? Klik "Sesuaikan Hari" atau minta di chat tanpa mengulang seluruh itinerary.',
+      'Ingin ubah satu hari saja? Klik "Ubah" atau minta di chat tanpa mengulang seluruh itinerary.',
     ],
     previewBg: 'from-amber-500/10 via-amber-500/5 to-transparent',
     previewIconBg: 'bg-amber-600 text-white',
@@ -101,12 +102,79 @@ const STEPS: Step[] = [
   },
 ]
 
-const PROMPT_IDEAS = [
+const STEPS_EN: Step[] = [
+  {
+    id: 1,
+    title: 'Smart AI Chat',
+    badge: 'Step 1',
+    Icon: MessageSquare,
+    headline: 'Describe your dream vacation naturally',
+    description:
+      'Simply tell Rute your destination city, length of stay, and travel style. Rute AI automatically validates real places via OpenStreetMap and checks live weather forecasts.',
+    highlightTips: [
+      'Specify your budget: e.g. "backpacker budget" or "4-star hotel comfort".',
+      'Mention preferences: "quiet beaches", "halal night food", or "traveling with toddlers".',
+      'Pick one of the quick prompt cards if you need instant inspiration.',
+    ],
+    previewBg: 'from-teal-500/10 via-teal-500/5 to-transparent',
+    previewIconBg: 'bg-teal-700 text-white',
+  },
+  {
+    id: 2,
+    title: 'Schedule & Map',
+    badge: 'Step 2',
+    Icon: MapPin,
+    headline: 'Integrated daily timeline and interactive route map',
+    description:
+      'Once AI creates your plan, the right-hand workspace (or Menu tab on mobile) displays a structured daily itinerary with activity hours and geographical map pins.',
+    highlightTips: [
+      'Click the "Map" tab to see route paths and nearby attractions.',
+      'Click a day card to focus on that specific day\'s activities.',
+      'Want to edit just one day? Click "Edit" or ask in chat without rewriting the whole itinerary.',
+    ],
+    previewBg: 'from-amber-500/10 via-amber-500/5 to-transparent',
+    previewIconBg: 'bg-amber-600 text-white',
+  },
+  {
+    id: 3,
+    title: 'Estimated Costs',
+    badge: 'Step 3',
+    Icon: Wallet,
+    headline: 'Budget transparency before you depart',
+    description:
+      'Open the "Expenses" tab to view categorized expense estimates automatically calculated based on your destination and trip duration.',
+    highlightTips: [
+      'Category breakdown: Transport & vehicle rental, 3x daily meals, attraction tickets, and lodging.',
+      'Great as a savings benchmark and shared expense reference for travel buddies.',
+      'Local money-saving tips are included to avoid unnecessary costs.',
+    ],
+    previewBg: 'from-emerald-500/10 via-emerald-500/5 to-transparent',
+    previewIconBg: 'bg-emerald-700 text-white',
+  },
+  {
+    id: 4,
+    title: 'Export & Checklist',
+    badge: 'Step 4',
+    Icon: FileText,
+    headline: 'Download PDF reports, phone calendar, and packing checklists',
+    description:
+      'Take all your travel plans offline without worrying about lost cellular signal during your journey.',
+    highlightTips: [
+      'Full Report (PDF): Clean, printable document with daily itineraries, emergency contacts, and budget estimates.',
+      'Calendar (.ics): Sync daily events directly into your phone\'s Google Calendar or Apple Calendar.',
+      'Packing Checklist: Check essential and destination-specific items (beach, mountain, travel documents) so nothing is forgotten.',
+    ],
+    previewBg: 'from-sky-500/10 via-sky-500/5 to-transparent',
+    previewIconBg: 'bg-teal-800 text-white',
+  },
+]
+
+const PROMPT_IDEAS_ID = [
   {
     tag: 'Populer',
     title: 'Liburan Santai Pulau & Pantai',
     prompt:
-      'Buatkan itinerary santai 4 hari ke Belitung fokus pantai pasir putih, kuliner seafood lokal, dan island hopping hopping hopping, budget menengah.',
+      'Buatkan itinerary santai 4 hari ke Belitung fokus pantai pasir putih, kuliner seafood lokal, dan island hopping, budget menengah.',
   },
   {
     tag: 'Budget Hemat',
@@ -128,10 +196,41 @@ const PROMPT_IDEAS = [
   },
 ]
 
+const PROMPT_IDEAS_EN = [
+  {
+    tag: 'Popular',
+    title: 'Relaxing Island & Beach Getaway',
+    prompt:
+      'Create a relaxing 4-day itinerary for Belitung focusing on white sand beaches, local seafood culinary, and island hopping, mid-range budget.',
+  },
+  {
+    tag: 'Budget',
+    title: 'Bandung Culinary & Heritage Tour',
+    prompt:
+      'Plan a 2-day 1-night weekend food and cultural itinerary in Bandung, backpacker-friendly with scooter rental.',
+  },
+  {
+    tag: 'Family',
+    title: 'Kid-Friendly Holiday in Yogyakarta',
+    prompt:
+      'Create a 3-day Yogyakarta itinerary for a family with young children and elderly parents, leisurely pace, stroller-friendly and cool spots.',
+  },
+  {
+    tag: 'Nature',
+    title: 'Bromo & Malang Nature Adventure',
+    prompt:
+      'Design a 3-day adventure trip to Bromo and Malang, including Bromo sunrise, Tumpak Sewu waterfall, and apple orchard visits.',
+  },
+]
+
 export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotlight }: TutorialModalProps) {
+  const { lang, t } = useLanguage()
   const [activeTab, setActiveTab] = useState<'tour' | 'prompts'>('tour')
   const [currentStep, setCurrentStep] = useState(0)
   const [dontShowAgain, setDontShowAgain] = useState(false)
+
+  const steps = lang === 'en' ? STEPS_EN : STEPS_ID
+  const promptIdeas = lang === 'en' ? PROMPT_IDEAS_EN : PROMPT_IDEAS_ID
 
   useEffect(() => {
     if (!isOpen) return
@@ -169,7 +268,7 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
     }
   }
 
-  const step = STEPS[currentStep]
+  const step = steps[currentStep] || steps[0]
 
   return (
     <div
@@ -190,16 +289,16 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
             </span>
             <div>
               <h2 id="tutorial-dialog-title" className="font-display text-lg font-bold text-stone-900 dark:text-white leading-snug">
-                Panduan Menggunakan Rute
+                {t('tutorialHeaderTitle')}
               </h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400">Kuasai fitur perencanaan perjalanan dalam hitungan menit</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">{t('tutorialHeaderSubtitle')}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleFinish}
             className="grid h-9 w-9 place-items-center rounded-full text-stone-400 transition hover:bg-stone-200 hover:text-stone-700 dark:hover:bg-[#222c3a] dark:hover:text-stone-200"
-            aria-label="Tutup panduan"
+            aria-label={lang === 'id' ? 'Tutup panduan' : 'Close guide'}
           >
             <X className="h-4 w-4" />
           </button>
@@ -218,7 +317,7 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
               }`}
             >
               <Sparkles className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-              <span>Panduan Fitur</span>
+              <span>{t('tutorialTabTour')}</span>
             </button>
             <button
               type="button"
@@ -230,7 +329,7 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
               }`}
             >
               <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <span>Contoh Prompt</span>
+              <span>{t('tutorialTabPrompts')}</span>
             </button>
           </div>
           {onStartSpotlight && (
@@ -247,10 +346,10 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
                 onStartSpotlight()
               }}
               className="hidden sm:inline-flex items-center gap-1.5 pb-2.5 text-xs font-semibold text-teal-700 hover:text-teal-900 transition dark:text-teal-400 dark:hover:text-teal-200"
-              title="Sorot langsung komponen di layar secara interaktif"
+              title={lang === 'id' ? 'Sorot langsung komponen di layar secara interaktif' : 'Interactively highlight on-screen components'}
             >
               <Sparkles className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
-              <span>Coba Tur Spotlight di Layar</span>
+              <span>{t('tutorialSpotlightBtn')}</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           )}
@@ -262,7 +361,7 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
             <div className="space-y-6">
               {/* Step indicator pills */}
               <div className="flex items-center justify-between gap-1 sm:gap-2">
-                {STEPS.map((s, idx) => (
+                {steps.map((s, idx) => (
                   <button
                     key={s.id}
                     type="button"
@@ -302,7 +401,7 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
                 <div className="mt-5 space-y-2 rounded-xl bg-white/90 p-3.5 sm:p-4 border border-stone-200/60 shadow-xs dark:bg-[#1a212b]/95 dark:border-stone-800">
                   <h4 className="text-xs font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wide flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
-                    <span>Tips Penting:</span>
+                    <span>{lang === 'id' ? 'Tips Penting:' : 'Key Tips:'}</span>
                   </h4>
                   <ul className="space-y-1.5 text-xs text-stone-700 dark:text-stone-300">
                     {step.highlightTips.map((tip, i) => (
@@ -318,11 +417,14 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
           ) : (
             <div className="space-y-4">
               <div className="rounded-xl bg-amber-50/70 border border-amber-200/80 p-3.5 text-xs text-amber-900 leading-relaxed dark:bg-amber-950/40 dark:border-amber-900/50 dark:text-amber-200">
-                <span className="font-bold">Tips Berkomunikasi:</span> Semakin spesifik detail yang kamu ceritakan (jumlah hari, siapa yang ikut, budget, atau tempat favorit), semakin akurat itinerary yang dirancang Rute.
+                <span className="font-bold">{lang === 'id' ? 'Tips Berkomunikasi:' : 'Communication Tips:'}</span>{' '}
+                {lang === 'id'
+                  ? 'Semakin spesifik detail yang kamu ceritakan (jumlah hari, siapa yang ikut, budget, atau tempat favorit), semakin akurat itinerary yang dirancang Rute.'
+                  : 'The more specific details you share (trip duration, travel companions, budget, or favorite spots), the more accurate Rute AI itinerary will be.'}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {PROMPT_IDEAS.map((item, idx) => (
+                {promptIdeas.map((item, idx) => (
                   <div
                     key={idx}
                     className="flex flex-col justify-between rounded-2xl border border-stone-200 bg-white p-4 transition hover:border-teal-700/40 hover:shadow-md hover:shadow-stone-900/5 dark:border-stone-800 dark:bg-[#1a212b] dark:hover:border-teal-500/40"
@@ -342,7 +444,7 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
                       onClick={() => handleUsePrompt(item.prompt)}
                       className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-teal-700 py-2 px-3 text-xs font-semibold text-white transition hover:bg-teal-800 active:scale-95 dark:bg-teal-600 dark:hover:bg-teal-700"
                     >
-                      <span>Gunakan Prompt Ini</span>
+                      <span>{lang === 'id' ? 'Gunakan Prompt Ini' : 'Use This Prompt'}</span>
                       <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -361,7 +463,7 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
               onChange={(e) => setDontShowAgain(e.target.checked)}
               className="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 cursor-pointer dark:border-stone-700 dark:bg-stone-800"
             />
-            <span>Jangan tampilkan otomatis lagi</span>
+            <span>{t('tutorialDontShow')}</span>
           </label>
 
           <div className="flex items-center gap-2">
@@ -381,7 +483,7 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
                 className="inline-flex sm:hidden items-center gap-1 rounded-xl border border-teal-200 bg-teal-50/80 px-2.5 py-2 text-xs font-semibold text-teal-700 hover:bg-teal-100 transition active:scale-95 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300"
               >
                 <Sparkles className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
-                <span>Tur Layar</span>
+                <span>{t('tutorialMobileTourBtn')}</span>
               </button>
             )}
 
@@ -392,17 +494,17 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
                 className="flex items-center gap-1 rounded-xl border border-stone-200 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition active:scale-95 dark:border-stone-700 dark:bg-[#141920] dark:text-stone-200 dark:hover:bg-[#222c3a]"
               >
                 <ChevronLeft className="h-4 w-4" />
-                <span>Sebelumnya</span>
+                <span>{t('spotlightPrev')}</span>
               </button>
             )}
 
-            {activeTab === 'tour' && currentStep < STEPS.length - 1 ? (
+            {activeTab === 'tour' && currentStep < steps.length - 1 ? (
               <button
                 type="button"
                 onClick={() => setCurrentStep((prev) => prev + 1)}
                 className="flex items-center gap-1 rounded-xl bg-teal-700 px-4 py-2 text-xs font-bold text-white hover:bg-teal-800 transition active:scale-95 shadow-xs dark:bg-teal-600 dark:hover:bg-teal-700"
               >
-                <span>Lanjut</span>
+                <span>{t('spotlightNext')}</span>
                 <ChevronRight className="h-4 w-4" />
               </button>
             ) : (
@@ -412,7 +514,7 @@ export function TutorialModal({ isOpen, onClose, onSelectPrompt, onStartSpotligh
                 className="flex items-center gap-1.5 rounded-xl bg-teal-700 px-5 py-2 text-xs font-bold text-white hover:bg-teal-800 transition active:scale-95 shadow-xs dark:bg-teal-600 dark:hover:bg-teal-700"
               >
                 <CheckCircle2 className="h-4 w-4" />
-                <span>Mulai Rencanakan</span>
+                <span>{t('spotlightFinish')}</span>
               </button>
             )}
           </div>

@@ -44,6 +44,7 @@ import { PackingListModal } from './components/PackingListModal'
 import { TutorialModal } from './components/TutorialModal'
 import { SpotlightTour } from './components/SpotlightTour'
 import type { ItineraryItem } from './components/DayCard'
+import { useLanguage, dictionaries } from './lib/i18n'
 
 function resolveApiBase(): string {
   const configured = String(import.meta.env.VITE_API_BASE || '').trim().replace(/\/$/, '')
@@ -64,33 +65,8 @@ const AUTH_TOKEN_KEY = 'travel_auth_token'
 const INITIAL_GREETING =
   'Halo! Mau liburan ke mana kali ini? Sebutkan destinasi (misal: Bali, Bandung, Labuan Bajo), durasi hari, dan gaya traveling favoritmu. Rute akan menyusun itinerary lengkap beserta peta dan perkiraan anggarannya!'
 
-const STARTER_PROMPTS = [
-  {
-    label: 'Labuan Bajo, 5 hari',
-    hint: 'Island hopping + sewa motor',
-    prompt:
-      'Buatkan langsung itinerary 5 hari 4 malam di Labuan Bajo mulai minggu depan, lengkap tempat wisata, makan 3x sehari, dan sewa motor',
-    Icon: Waves,
-  },
-  {
-    label: 'Bali, 3 hari',
-    hint: 'Pantai & kuliner, budget menengah',
-    prompt: 'Buatkan itinerary liburan 3 hari ke Bali minggu depan, suka pantai dan kuliner, budget menengah',
-    Icon: Mountain,
-  },
-  {
-    label: 'Bandung, akhir pekan',
-    hint: 'Kuliner & alam, budget hemat',
-    prompt: 'Buatkan itinerary wisata kuliner dan alam 2 hari di Bandung akhir pekan depan, budget hemat',
-    Icon: UtensilsCrossed,
-  },
-] as const
-
-const WORKSPACE_TABS = [
-  ['overview', 'Jadwal', LayoutGrid],
-  ['map', 'Peta', MapIcon],
-  ['expenses', 'Biaya', Wallet],
-] as const
+const isInitialGreeting = (content: string) =>
+  content === INITIAL_GREETING || content === dictionaries.id.greeting || content === dictionaries.en.greeting
 
 type Message = { role: 'user' | 'model'; content: string }
 type Credentials = { sessionId: string; token: string }
@@ -259,7 +235,35 @@ function shareToWhatsApp(
 }
 
 export default function App() {
+  const { lang, t } = useLanguage()
   const [credentials, setCredentials] = useState<Credentials | null>(null)
+
+  const starterPrompts = [
+    {
+      label: t('starter1Label'),
+      hint: t('starter1Hint'),
+      prompt: t('starter1Prompt'),
+      Icon: Waves,
+    },
+    {
+      label: t('starter2Label'),
+      hint: t('starter2Hint'),
+      prompt: t('starter2Prompt'),
+      Icon: Mountain,
+    },
+    {
+      label: t('starter3Label'),
+      hint: t('starter3Hint'),
+      prompt: t('starter3Prompt'),
+      Icon: UtensilsCrossed,
+    },
+  ]
+
+  const workspaceTabs = [
+    ['overview', t('workspaceSchedule'), LayoutGrid],
+    ['map', t('workspaceMap'), MapIcon],
+    ['expenses', t('workspaceExpenses'), Wallet],
+  ] as const
   const [messages, setMessages] = useState<Message[]>([{ role: 'model', content: INITIAL_GREETING }])
   const [input, setInput] = useState('')
   const [isBootstrapping, setIsBootstrapping] = useState(true)
@@ -432,11 +436,11 @@ export default function App() {
     const cleanMessage = message.trim()
     const controller = new AbortController()
     abortRef.current = controller
-    const priorHistory = messages.filter((m) => m.content !== INITIAL_GREETING && m.content.trim())
+    const priorHistory = messages.filter((m) => !isInitialGreeting(m.content) && m.content.trim())
     setInput('')
     setPageError(null)
     setLastFailedMessage(null)
-    setChatProgress('Menghubungkan ke perencana...')
+    setChatProgress(lang === 'id' ? 'Menghubungkan ke perencana...' : 'Connecting to planner...')
     setIsLoading(true)
     setMessages((current) => [...current, { role: 'user', content: cleanMessage }, { role: 'model', content: '' }])
 
@@ -777,7 +781,7 @@ export default function App() {
   function handleExportReport() {
     const latestAiMsg = [...messages]
       .reverse()
-      .find((m) => m.role === 'model' && m.content !== INITIAL_GREETING && m.content.trim())?.content
+      .find((m) => m.role === 'model' && !isInitialGreeting(m.content) && m.content.trim())?.content
     openOrDownloadTravelReport({
       destination: inferredDestination,
       dayCount: inferredDayCount,
@@ -860,10 +864,10 @@ export default function App() {
                 type="button"
                 onClick={() => setActiveTab('overview')}
                 className="lg:hidden flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-100 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-200 active:scale-95 transition shrink-0 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-200 dark:hover:bg-[#222c3a]"
-                aria-label="Kembali ke Menu / Jadwal"
+                aria-label={t('menuBtnAria')}
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                <span>Menu</span>
+                <span>{t('menuBtn')}</span>
               </button>
 
               <div className="relative grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-400">
@@ -871,9 +875,9 @@ export default function App() {
                 <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-[#141920]" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-sm font-bold leading-none text-stone-900 dark:text-stone-100 truncate">Asisten Rute</h2>
+                <h2 className="text-sm font-bold leading-none text-stone-900 dark:text-stone-100 truncate">{t('assistantTitle')}</h2>
                 <p className="mt-1 text-xs text-stone-500 dark:text-stone-400 truncate">
-                  {isLoading ? 'Sedang menyusun…' : 'Siap membantu rencanamu'}
+                  {isLoading ? t('assistantSubtitleDrafting') : t('assistantSubtitleReady')}
                 </p>
               </div>
             </div>
@@ -884,10 +888,10 @@ export default function App() {
                   type="button"
                   onClick={handleExportReport}
                   className="lg:hidden flex items-center gap-1 rounded-xl bg-teal-50 border border-teal-600/30 px-2.5 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 active:scale-95 transition dark:bg-teal-950/40 dark:border-teal-700/50 dark:text-teal-300 dark:hover:bg-teal-900/40"
-                  title="Unduh Dokumen Laporan Perjalanan"
+                  title={t('reportBtnTitle')}
                 >
                   <FileText className="h-3.5 w-3.5" />
-                  <span>Laporan</span>
+                  <span>{t('reportBtn')}</span>
                 </button>
               )}
               <button
@@ -899,18 +903,18 @@ export default function App() {
                     ? 'bg-teal-700 text-white dark:bg-teal-600'
                     : 'bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-[#1a212b] dark:text-stone-300 dark:hover:bg-[#242e3b]'
                 }`}
-                title="Kelola preferensi yang diingat"
+                title={t('memoryTitle')}
               >
                 <Database className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Memori</span>{preferences.length > 0 ? ` · ${preferences.length}` : ''}
+                <span className="hidden sm:inline">{t('memoryBtn')}</span>{preferences.length > 0 ? ` · ${preferences.length}` : ''}
               </button>
             </div>
           </header>
 
           {showPreferences && (
-            <section className="animate-rise border-b border-stone-100 bg-stone-50/80 px-4 py-3 dark:border-stone-800 dark:bg-[#18202a]" aria-label="Preferensi tersimpan">
+            <section className="animate-rise border-b border-stone-100 bg-stone-50/80 px-4 py-3 dark:border-stone-800 dark:bg-[#18202a]" aria-label={t('savedPreferences')}>
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">Hal yang Rute ingat tentangmu</p>
+                <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">{t('memoryHeader')}</p>
                 <button
                   type="button"
                   onClick={() => setShowPreferences(false)}
@@ -922,7 +926,7 @@ export default function App() {
               </div>
               {preferences.length === 0 ? (
                 <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Belum ada. Sebutkan hal seperti “suka pantai” atau “budget hemat” di chat.
+                  {t('memoryEmpty')}
                 </p>
               ) : (
                 <ul className="thin-scrollbar flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
@@ -990,11 +994,11 @@ export default function App() {
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600 [animation-delay:-0.15s]" />
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600" />
                       </span>
-                      {chatProgress || 'Menyusun rute terbaik…'}
+                      {chatProgress || (lang === 'id' ? 'Menyusun rute terbaik…' : 'Finding the best route…')}
                     </span>
                   ) : message.role === 'model' ? (
                     <>
-                      <Markdown content={message.content} />
+                      <Markdown content={index === 0 && isInitialGreeting(message.content) ? t('greeting') : message.content} />
                       {index === messages.length - 1 && isLoading && chatProgress && (
                         <div className="mt-2.5 flex items-center gap-2 border-t border-stone-200 dark:border-stone-800 pt-2 text-xs text-stone-500 dark:text-stone-400">
                           <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-700 dark:text-teal-400" />
@@ -1016,42 +1020,42 @@ export default function App() {
                   <div className="mb-2.5 flex items-center justify-between gap-2 rounded-2xl border border-teal-200/80 bg-teal-50/70 p-2.5 sm:p-3 text-xs text-teal-900 dark:border-teal-800/60 dark:bg-teal-950/40 dark:text-teal-200">
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-teal-700 dark:text-teal-400 shrink-0" />
-                      <span className="font-medium">Baru di Rute? Lihat cara kerja & fiturnya</span>
+                      <span className="font-medium">{t('newToRute')}</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsTutorialOpen(true)}
                       className="shrink-0 font-bold underline decoration-teal-700 underline-offset-2 hover:text-teal-800 dark:decoration-teal-400 dark:hover:text-teal-300"
                     >
-                      Buka Panduan ➔
+                      {t('openGuideBtn')}
                     </button>
                   </div>
                 )}
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">Coba mulai dengan:</p>
+                  <p className="text-xs font-semibold text-stone-500 dark:text-stone-400">{t('tryStartingWith')}</p>
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <button
                       type="button"
                       onClick={() => setIsSpotlightOpen(true)}
                       className="flex items-center gap-1 rounded-full bg-teal-50 dark:bg-teal-950/60 px-2.5 py-1 text-[11px] font-bold text-teal-800 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 border border-teal-200/80 dark:border-teal-800/60 transition shadow-xs active:scale-95"
-                      title="Mulai tur interaktif spotlight di layar"
+                      title={t('interactiveTourTitle')}
                     >
                       <Sparkles className="h-3 w-3 text-amber-500" />
-                      <span>Tur Interaktif</span>
+                      <span>{t('interactiveTourBtn')}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsTutorialOpen(true)}
                       className="flex items-center gap-1 text-[11px] font-semibold text-stone-600 dark:text-stone-300 hover:text-teal-800 dark:hover:text-teal-300 transition"
-                      title="Buka panduan lengkap & contoh prompt"
+                      title={t('guideTitle')}
                     >
                       <HelpCircle className="h-3.5 w-3.5" />
-                      <span>Panduan</span>
+                      <span>{t('guide')}</span>
                     </button>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {STARTER_PROMPTS.map(({ label, hint, prompt, Icon }) => (
+                  {starterPrompts.map(({ label, hint, prompt, Icon }) => (
                     <button
                       key={label}
                       type="button"
@@ -1082,14 +1086,14 @@ export default function App() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="inline-flex items-center gap-1 rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-800 uppercase tracking-wide dark:bg-teal-900/60 dark:text-teal-300">
-                        <CheckCircle2 className="h-3 w-3" /> Selesai
+                        <CheckCircle2 className="h-3 w-3" /> {t('tripReadyBadge')}
                       </span>
                       <h3 className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
-                        Laporan {inferredDestination} ({inferredDayCount} Hari) Siap!
+                        {t('tripReadyTitle', { dest: inferredDestination, days: inferredDayCount })}
                       </h3>
                     </div>
                     <p className="mt-1 text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-                      Dokumen perjalananmu sudah siap. Ketuk tombol di bawah untuk mengunduh laporan PDF resmi, atau eksplorasi jadwal, peta rute, dan rincian biaya:
+                      {t('tripReadyDesc')}
                     </p>
                   </div>
                 </div>
@@ -1102,7 +1106,7 @@ export default function App() {
                     className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-teal-700 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-teal-800 active:scale-[0.98]"
                   >
                     <Download className="h-4 w-4" />
-                    <span>Laporan Lengkap (PDF)</span>
+                    <span>{t('btnFullReport')}</span>
                   </button>
                   <button
                     type="button"
@@ -1116,29 +1120,29 @@ export default function App() {
                       )
                     }
                     className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98]"
-                    title="Kirim ringkasan rute & budget ke WhatsApp"
+                    title={t('shareWaTitle')}
                   >
                     <Share2 className="h-4 w-4" />
-                    <span>Bagikan ke WhatsApp</span>
+                    <span>{t('btnShareWa')}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsPackingModalOpen(true)}
                     className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98] dark:border-stone-800 dark:bg-[#141920] dark:text-stone-200 dark:hover:bg-[#1c232d]"
-                    title="Buka checklist barang bawaan traveler"
+                    title={t('packingTitle')}
                   >
                     <CheckSquare className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-                    <span>Checklist Bawaan</span>
+                    <span>{t('btnPackingList')}</span>
                   </button>
                   {itinerary && (
                     <button
                       type="button"
                       onClick={exportCalendar}
                       className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98] dark:border-stone-800 dark:bg-[#141920] dark:text-stone-200 dark:hover:bg-[#1c232d]"
-                      title="Simpan jadwal ke kalender HP (.ics)"
+                      title={t('calendarTitle')}
                     >
                       <Calendar className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-                      <span>Kalender (.ics)</span>
+                      <span>{t('btnCalendar')}</span>
                     </button>
                   )}
                 </div>
@@ -1149,14 +1153,14 @@ export default function App() {
             {hasAskedAi && !isLoading && (
               <div className="animate-rise space-y-1.5 pt-1">
                 <p className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1">
-                  <Sparkles className="h-3 w-3 text-amber-500" /> Pertanyaan lanjutan:
+                  <Sparkles className="h-3 w-3 text-amber-500" /> {t('followupTitle')}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { text: 'Rekomendasi kuliner lokal autentik & halal', Icon: UtensilsCrossed, isPacking: false },
-                    { text: 'Info sewa motor harian & rute hemat', Icon: Bike, isPacking: false },
-                    { text: 'Spot sunset & panorama terbaik', Icon: Sunset, isPacking: false },
-                    { text: 'Checklist barang bawaan traveler', Icon: Luggage, isPacking: true },
+                    { text: t('qCulinary'), Icon: UtensilsCrossed, isPacking: false },
+                    { text: t('qTransport'), Icon: Bike, isPacking: false },
+                    { text: t('qSunset'), Icon: Sunset, isPacking: false },
+                    { text: t('qPacking'), Icon: Luggage, isPacking: true },
                   ].map(({ text, Icon, isPacking }) => (
                     <button
                       key={text}
@@ -1189,7 +1193,7 @@ export default function App() {
                 onClick={() => void sendMessage(lastFailedMessage)}
                 className="mb-2 flex min-h-[40px] items-center gap-1.5 rounded-full bg-rose-50 px-3 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/60"
               >
-                <RotateCcw className="h-4 w-4" /> Coba kirim ulang
+                <RotateCcw className="h-4 w-4" /> {lang === 'id' ? 'Coba kirim ulang' : 'Retry sending'}
               </button>
             )}
             <form
@@ -1205,8 +1209,8 @@ export default function App() {
                 disabled={isLoading}
                 maxLength={4000}
                 rows={1}
-                aria-label="Pesan untuk Rute"
-                placeholder="Mau liburan ke mana?"
+                aria-label={lang === 'id' ? 'Pesan untuk Rute' : 'Message for Rute'}
+                placeholder={t('chatPlaceholder')}
                 className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-base text-stone-800 placeholder:text-stone-400 focus:outline-none disabled:opacity-60 sm:text-sm dark:text-stone-100 dark:placeholder:text-stone-500"
               />
               {isLoading ? (
@@ -1214,8 +1218,8 @@ export default function App() {
                   type="button"
                   onClick={cancelRequest}
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-stone-800 text-white transition hover:bg-stone-900 dark:bg-stone-700 dark:hover:bg-stone-600"
-                  title="Hentikan"
-                  aria-label="Hentikan"
+                  title={lang === 'id' ? 'Hentikan' : 'Stop'}
+                  aria-label={lang === 'id' ? 'Hentikan' : 'Stop'}
                 >
                   <Square className="h-4 w-4 fill-current" />
                 </button>
@@ -1224,15 +1228,17 @@ export default function App() {
                   type="submit"
                   disabled={!input.trim()}
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-teal-700 text-white shadow-sm transition hover:bg-teal-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-stone-300 dark:disabled:bg-stone-800 dark:disabled:text-stone-600"
-                  title="Kirim pesan"
-                  aria-label="Kirim pesan"
+                  title={lang === 'id' ? 'Kirim pesan' : 'Send message'}
+                  aria-label={lang === 'id' ? 'Kirim pesan' : 'Send message'}
                 >
                   <ArrowUp className="h-5 w-5 stroke-[2.5]" />
                 </button>
               )}
             </form>
             <p className="mt-1.5 hidden px-2 text-[11px] text-stone-400 dark:text-stone-500 sm:block">
-              Enter untuk kirim · Shift+Enter baris baru · Verifikasi harga & jam buka sebelum berangkat
+              {lang === 'id'
+                ? 'Enter untuk kirim · Shift+Enter baris baru · Verifikasi harga & jam buka sebelum berangkat'
+                : 'Enter to send · Shift+Enter for new line · Verify tickets & hours before departure'}
             </p>
           </footer>
         </aside>
@@ -1250,27 +1256,27 @@ export default function App() {
                   type="button"
                   onClick={() => setActiveTab('chat')}
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-stone-200 text-stone-600 hover:bg-stone-50 dark:border-stone-800 dark:text-stone-300 dark:hover:bg-stone-800/60 lg:hidden"
-                  aria-label="Kembali ke chat"
+                  aria-label={lang === 'id' ? 'Kembali ke chat' : 'Back to chat'}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h1 className="truncate font-display text-2xl font-bold text-stone-900 dark:text-stone-100 sm:text-3xl">
-                      {itinerary?.destination || (hasAskedAi ? inferredDestination : 'Ke mana kita pergi?')}
+                      {itinerary?.destination || (hasAskedAi ? inferredDestination : t('workspaceTitleDefault'))}
                     </h1>
                     {itinerary && (
                       <span className="hidden sm:inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-700/40">
-                        Tersimpan
+                        {t('savedBadge')}
                       </span>
                     )}
                   </div>
                   <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
                     {itinerary
-                      ? `${sortedDays.length} hari eksplorasi · Jadwal terpadu`
+                      ? t('explorationDays', { days: sortedDays.length })
                       : hasAskedAi
-                        ? 'Draf rencana dari asisten AI'
-                        : 'Mulai rancang liburan impian'}
+                        ? (lang === 'id' ? 'Draf rencana dari asisten AI' : 'Draft plan from AI assistant')
+                        : t('workspaceSubtitleDefault')}
                   </p>
                 </div>
               </div>
@@ -1279,7 +1285,7 @@ export default function App() {
                   <Calendar className="h-3.5 w-3.5" />
                   {itinerary
                     ? formatRangeDates(itinerary.start_date, itinerary.end_date)
-                    : `Estimasi ${inferredDayCount} hari`}
+                    : (lang === 'id' ? `Estimasi ${inferredDayCount} hari` : `Estimated ${inferredDayCount} days`)}
                 </div>
               )}
             </div>
@@ -1288,9 +1294,9 @@ export default function App() {
             <nav
               data-tour="workspace-tabs"
               className="flex w-full gap-1 self-start rounded-full bg-stone-100 dark:bg-[#1a212b] p-1 sm:w-auto"
-              aria-label="Tampilan rencana"
+              aria-label={lang === 'id' ? 'Tampilan rencana' : 'Plan view'}
             >
-              {WORKSPACE_TABS.map(([tab, label, Icon]) => (
+              {workspaceTabs.map(([tab, label, Icon]) => (
                 <button
                   key={tab}
                   type="button"
@@ -1347,7 +1353,7 @@ export default function App() {
                         : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-300 dark:hover:border-stone-700'
                     }`}
                   >
-                    {day === null ? 'Semua hari' : `Hari ${day}`}
+                    {day === null ? t('allDays') : t('dayNumber', { num: day })}
                   </button>
                 ))}
               </div>
@@ -1371,12 +1377,16 @@ export default function App() {
                     <Compass className="h-7 w-7" />
                   </div>
                   <h2 className="font-display text-3xl font-bold text-stone-900 dark:text-stone-100 sm:text-4xl">
-                    {hasAskedAi ? `Lanjutkan rencana ke ${inferredDestination}` : 'Ceritakan liburan impianmu.'}
+                    {hasAskedAi
+                      ? (lang === 'id' ? `Lanjutkan rencana ke ${inferredDestination}` : `Continue planning for ${inferredDestination}`)
+                      : t('emptyTitle')}
                   </h2>
                   <p className="max-w-lg text-sm leading-relaxed text-stone-600 dark:text-stone-400 sm:text-base">
                     {hasAskedAi
-                      ? `Detail perjalanan ${inferredDayCount} hari masih dibahas di chat. Begitu itinerary disimpan, jadwal harian dan peta akan muncul di sini.`
-                      : 'Tulis tujuan, berapa hari, dan gaya liburanmu. Rute mencari tempat nyata di OpenStreetMap, mengecek cuaca, lalu menyusun jadwal per hari.'}
+                      ? (lang === 'id'
+                          ? `Detail perjalanan ${inferredDayCount} hari masih dibahas di chat. Begitu itinerary disimpan, jadwal harian dan peta akan muncul di sini.`
+                          : `Travel details for ${inferredDayCount} days are still being discussed in chat. Once saved, the daily schedule and map will appear here.`)
+                      : t('emptyDesc')}
                   </p>
                   {!hasAskedAi && (
                     <div className="pt-1">
@@ -1386,7 +1396,7 @@ export default function App() {
                         className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 underline decoration-teal-700/60 dark:decoration-teal-400/60 underline-offset-4 transition"
                       >
                         <HelpCircle className="h-3.5 w-3.5" />
-                        <span>Pelajari panduan fitur & contoh prompt ➔</span>
+                        <span>{t('emptyGuideLink')}</span>
                       </button>
                     </div>
                   )}
@@ -1402,27 +1412,33 @@ export default function App() {
                       }}
                       className="flex min-h-[44px] items-center gap-2 rounded-full bg-teal-700 px-5 text-sm font-semibold text-white transition hover:bg-teal-800 lg:hidden"
                     >
-                      <MessageSquare className="h-4 w-4" /> Lanjut di chat
+                      <MessageSquare className="h-4 w-4" /> {lang === 'id' ? 'Lanjut di chat' : 'Continue in chat'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => runStarter(`Simpan itinerary ${inferredDayCount} hari ke ${inferredDestination} sekarang`)}
+                      onClick={() =>
+                        runStarter(
+                          lang === 'id'
+                            ? `Simpan itinerary ${inferredDayCount} hari ke ${inferredDestination} sekarang`
+                            : `Save ${inferredDayCount}-day itinerary to ${inferredDestination} now`
+                        )
+                      }
                       disabled={isLoading}
                       className="flex min-h-[44px] items-center gap-2 rounded-full bg-stone-900 dark:bg-teal-700 px-5 text-sm font-semibold text-white transition hover:bg-stone-800 dark:hover:bg-teal-800 disabled:opacity-50"
                     >
-                      <Sparkles className="h-4 w-4" /> Buatkan itinerary sekarang
+                      <Sparkles className="h-4 w-4" /> {lang === 'id' ? 'Buatkan itinerary sekarang' : 'Generate itinerary now'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveTab('expenses')}
                       className="flex min-h-[44px] items-center gap-2 rounded-full border border-stone-200 px-5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 dark:border-stone-800 dark:text-stone-300 dark:hover:bg-stone-800/50"
                     >
-                      <Wallet className="h-4 w-4" /> Lihat estimasi biaya
+                      <Wallet className="h-4 w-4" /> {lang === 'id' ? 'Lihat estimasi biaya' : 'View cost estimates'}
                     </button>
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr]">
-                    {STARTER_PROMPTS.map(({ label, hint, prompt, Icon }, i) => (
+                    {starterPrompts.map(({ label, hint, prompt, Icon }, i) => (
                       <button
                         key={label}
                         type="button"
@@ -1452,10 +1468,10 @@ export default function App() {
                 <div className="space-y-4 pb-8">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-stone-500 dark:text-stone-400">
                     <p>
-                      {sortedDays.length} hari · {itinerary.items.length} aktivitas terencana
+                      {t('dayActivitiesCount', { days: sortedDays.length, activities: itinerary.items.length })}
                     </p>
                     <p className="hidden text-stone-400 dark:text-stone-500 sm:block">
-                      Klik kartu hari untuk fokus rute & peta interaktif
+                      {t('clickCardHint')}
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -1482,14 +1498,16 @@ export default function App() {
                   <div className="min-w-0">
                     <div className="mb-3 flex items-center justify-between text-xs font-semibold text-stone-500 dark:text-stone-400">
                       <span>
-                        Fokus: Hari {selectedDay} ({groupedItems[selectedDay]?.length || 0} aktivitas)
+                        {lang === 'id'
+                          ? `Fokus: Hari ${selectedDay} (${groupedItems[selectedDay]?.length || 0} aktivitas)`
+                          : `Focus: Day ${selectedDay} (${groupedItems[selectedDay]?.length || 0} activities)`}
                       </span>
                       <button
                         type="button"
                         onClick={() => setSelectedDay(null)}
                         className="font-medium text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 underline"
                       >
-                        Lihat semua hari
+                        {lang === 'id' ? 'Lihat semua hari' : 'View all days'}
                       </button>
                     </div>
                     <DayCard
@@ -1524,9 +1542,9 @@ export default function App() {
       {/* Mobile bottom navigation */}
       <nav
         className="z-40 flex shrink-0 items-stretch justify-around border-t border-stone-200 bg-white dark:border-stone-800 dark:bg-[#141920] px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 lg:hidden"
-        aria-label="Navigasi utama"
+        aria-label={lang === 'id' ? 'Navigasi utama' : 'Main navigation'}
       >
-        {([['chat', 'Chat', MessageSquare], ...WORKSPACE_TABS] as const).map(([tab, label, Icon]) => (
+        {([['chat', 'Chat', MessageSquare], ...workspaceTabs] as const).map(([tab, label, Icon]) => (
           <button
             key={tab}
             type="button"

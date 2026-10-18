@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Calendar, Pencil, ExternalLink, ChevronDown, ChevronUp, MapPin, Star, Navigation } from 'lucide-react'
 import { getDayCoverImage } from '../lib/images'
+import { useLanguage } from '../lib/i18n'
 
 export type ItineraryItem = {
   id: string
@@ -30,26 +31,28 @@ type DayCardProps = {
   onSelectPlace?: (item: ItineraryItem) => void
 }
 
-function formatDayDate(startDate?: string, dayNumber = 1): string {
-  if (!startDate) return `Hari ${dayNumber}`
+function formatDayDate(startDate?: string, dayNumber = 1, lang: string = 'id'): string {
+  const defaultLabel = lang === 'id' ? `Hari ${dayNumber}` : `Day ${dayNumber}`
+  if (!startDate) return defaultLabel
   try {
     const base = new Date(`${startDate}T00:00:00Z`)
-    if (isNaN(base.getTime())) return `Hari ${dayNumber}`
+    if (isNaN(base.getTime())) return defaultLabel
     base.setUTCDate(base.getUTCDate() + (dayNumber - 1))
-    return new Intl.DateTimeFormat('id-ID', {
+    return new Intl.DateTimeFormat(lang === 'id' ? 'id-ID' : 'en-US', {
       weekday: 'long',
       month: 'short',
       day: 'numeric',
       timeZone: 'UTC',
     }).format(base)
   } catch {
-    return `Hari ${dayNumber}`
+    return defaultLabel
   }
 }
 
-function formatReviewCount(count?: number | null): string {
-  if (!count) return '1.2rb'
-  if (count >= 1000) return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}rb`
+function formatReviewCount(count?: number | null, lang: string = 'id'): string {
+  const suffix = lang === 'id' ? 'rb' : 'k'
+  if (!count) return `1.2${suffix}`
+  if (count >= 1000) return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}${suffix}`
   return String(count)
 }
 
@@ -91,18 +94,19 @@ export function DayCard({
   onRefineDay,
   onSelectPlace,
 }: DayCardProps) {
+  const { lang, t } = useLanguage()
   const [showAllItems, setShowAllItems] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
 
   const activityKeywords = items.flatMap((it) => [it.title, it.category || '', it.location_name || ''])
   const coverUrl = getDayCoverImage(destination, dayNumber, activityKeywords)
-  const formattedDate = formatDayDate(startDate, dayNumber)
+  const formattedDate = formatDayDate(startDate, dayNumber, lang)
 
   const mainTitles = items.map((it) => it.title).filter(Boolean)
   const daySummary =
     mainTitles.length > 0
       ? `${mainTitles[0]}${mainTitles.length > 1 ? ` & ${mainTitles[1]}` : ''}`
-      : `Eksplorasi ${destination}`
+      : (lang === 'id' ? `Eksplorasi ${destination}` : `Explore ${destination}`)
 
   const displayedItems = showAllItems ? items : items.slice(0, 4)
 
@@ -110,7 +114,11 @@ export function DayCard({
     <article
       role="button"
       tabIndex={0}
-      aria-label={`Hari ke-${dayNumber}: ${daySummary}. ${items.length} aktivitas terencana.`}
+      aria-label={
+        lang === 'id'
+          ? `Hari ke-${dayNumber}: ${daySummary}. ${items.length} aktivitas terencana.`
+          : `Day ${dayNumber}: ${daySummary}. ${items.length} planned activities.`
+      }
       aria-pressed={isActive}
       onClick={onSelectDay}
       onKeyDown={(e) => {
@@ -129,7 +137,7 @@ export function DayCard({
       <div className="relative h-36 w-full overflow-hidden bg-stone-200 dark:bg-stone-800">
         <img
           src={coverUrl}
-          alt={`Hari ${dayNumber}: ${daySummary}`}
+          alt={lang === 'id' ? `Hari ${dayNumber}: ${daySummary}` : `Day ${dayNumber}: ${daySummary}`}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
           className={`h-full w-full object-cover transition duration-500 group-hover:scale-105 ${
@@ -137,7 +145,7 @@ export function DayCard({
           }`}
         />
         <div className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-stone-900 shadow-sm backdrop-blur-xs dark:bg-[#141920]/90 dark:text-stone-100">
-          Hari {dayNumber}
+          {t('dayNumber', { num: dayNumber })}
         </div>
         {onRefineDay && (
           <button
@@ -147,10 +155,10 @@ export function DayCard({
               onRefineDay(dayNumber)
             }}
             className="absolute right-3 top-3 flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-white/95 px-3 text-xs font-semibold text-stone-700 shadow-sm transition hover:bg-teal-700 hover:text-white focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-1 dark:bg-[#141920]/90 dark:text-stone-200 dark:hover:bg-teal-700 dark:hover:text-white"
-            title="Minta Rute mengubah hari ini"
-            aria-label={`Ubah hari ke-${dayNumber}`}
+            title={lang === 'id' ? 'Minta Rute mengubah hari ini' : 'Ask Rute to modify this day'}
+            aria-label={lang === 'id' ? `Ubah hari ke-${dayNumber}` : `Edit Day ${dayNumber}`}
           >
-            <Pencil className="h-3.5 w-3.5" /> <span>Ubah</span>
+            <Pencil className="h-3.5 w-3.5" /> <span>{t('editDay')}</span>
           </button>
         )}
       </div>
@@ -162,7 +170,9 @@ export function DayCard({
           <Calendar className="h-3.5 w-3.5 text-stone-500 dark:text-stone-400" />
           <span className="font-medium capitalize">{formattedDate}</span>
           <span aria-hidden="true" className="text-stone-300 dark:text-stone-600">·</span>
-          <span className="font-medium text-stone-600 dark:text-stone-400">{items.length} aktivitas</span>
+          <span className="font-medium text-stone-600 dark:text-stone-400">
+            {lang === 'id' ? `${items.length} aktivitas` : `${items.length} activities`}
+          </span>
         </div>
       </div>
 
@@ -192,7 +202,7 @@ export function DayCard({
                   <span className="mt-0.5 flex items-center gap-1 text-xs text-stone-600 dark:text-stone-400">
                     <MapPin className="h-3 w-3 shrink-0 text-stone-400 dark:text-stone-500" />
                     <span className="line-clamp-1">
-                      {item.location_name || item.address || item.description || 'Lokasi terkonfirmasi'}
+                      {item.location_name || item.address || item.description || (lang === 'id' ? 'Lokasi terkonfirmasi' : 'Verified location')}
                     </span>
                   </span>
                   {hasRating ? (
@@ -200,7 +210,7 @@ export function DayCard({
                       <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
                       <span>{item.rating}</span>
                       {item.user_ratings_total ? (
-                        <span className="text-amber-700/80 dark:text-amber-400/80">({formatReviewCount(item.user_ratings_total)})</span>
+                        <span className="text-amber-700/80 dark:text-amber-400/80">({formatReviewCount(item.user_ratings_total, lang)})</span>
                       ) : null}
                       <span className="text-[10px] text-stone-500 dark:text-stone-400 font-normal">· {item.source_name || 'Google Maps'}</span>
                     </span>
@@ -217,8 +227,8 @@ export function DayCard({
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
                     className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-stone-400 transition hover:bg-white hover:text-teal-700 dark:hover:bg-[#1a212b] dark:hover:text-teal-400 focus-visible:ring-2 focus-visible:ring-teal-700 sm:opacity-0 sm:group-hover/item:opacity-100"
-                    title="Buka di Google Maps"
-                    aria-label={`Buka ${item.title} di Google Maps`}
+                    title={lang === 'id' ? 'Buka di Google Maps' : 'Open in Google Maps'}
+                    aria-label={lang === 'id' ? `Buka ${item.title} di Google Maps` : `Open ${item.title} in Google Maps`}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
@@ -237,10 +247,10 @@ export function DayCard({
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
           className="flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-teal-200/80 bg-teal-50/90 dark:border-teal-800/60 dark:bg-teal-950/40 dark:text-teal-300 dark:hover:bg-teal-900/60 dark:hover:text-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 hover:text-teal-900 active:scale-[0.98] shadow-xs focus-visible:ring-2 focus-visible:ring-teal-700"
-          title={`Buka rute navigasi Hari ke-${dayNumber} di Google Maps`}
+          title={lang === 'id' ? `Buka rute navigasi Hari ke-${dayNumber} di Google Maps` : `Open Day ${dayNumber} route in Google Maps`}
         >
           <Navigation className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
-          <span>Rute Hari {dayNumber} di Google Maps</span>
+          <span>{lang === 'id' ? `Rute Hari ${dayNumber} di Google Maps` : `Day ${dayNumber} Route on Google Maps`}</span>
           <ExternalLink className="h-3 w-3 text-teal-600 dark:text-teal-400" />
         </a>
       </div>
@@ -256,11 +266,12 @@ export function DayCard({
         >
           {showAllItems ? (
             <>
-              Tampilkan lebih sedikit <ChevronUp className="h-3.5 w-3.5" />
+              {lang === 'id' ? 'Tampilkan lebih sedikit' : 'Show less'} <ChevronUp className="h-3.5 w-3.5" />
             </>
           ) : (
             <>
-              +{items.length - 4} aktivitas lainnya <ChevronDown className="h-3.5 w-3.5" />
+              {lang === 'id' ? `+${items.length - 4} aktivitas lainnya` : `+${items.length - 4} more activities`}{' '}
+              <ChevronDown className="h-3.5 w-3.5" />
             </>
           )}
         </button>

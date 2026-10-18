@@ -12,6 +12,7 @@ import {
   Mountain,
   Compass,
 } from 'lucide-react'
+import { useLanguage } from '../lib/i18n'
 
 type PackingCategory = {
   id: string
@@ -27,23 +28,103 @@ type PackingListModalProps = {
   dayCount?: number
 }
 
-function getPackingCategories(destination = 'Indonesia'): PackingCategory[] {
+function getPackingCategories(destination = 'Indonesia', lang: 'id' | 'en' = 'id'): PackingCategory[] {
   const destLower = destination.toLowerCase()
   const isIslandOrBeach =
     destLower.includes('bajo') ||
     destLower.includes('bali') ||
     destLower.includes('lombok') ||
     destLower.includes('raja ampat') ||
-    destLower.includes('pantai')
+    destLower.includes('pantai') ||
+    destLower.includes('beach') ||
+    destLower.includes('island')
 
   const isHighlandOrCold =
     destLower.includes('bromo') ||
     destLower.includes('bandung') ||
     destLower.includes('dieng') ||
     destLower.includes('malang') ||
-    destLower.includes('gunung')
+    destLower.includes('gunung') ||
+    destLower.includes('mountain') ||
+    destLower.includes('highland')
 
   const destinationItems: string[] = []
+  if (lang === 'en') {
+    if (isIslandOrBeach) {
+      destinationItems.push(
+        'Dry bag (10L / 20L) for island hopping / canoeing',
+        'Waterproof phone pouch',
+        'Water shoes / anti-slip reef sandals',
+        'Personal snorkel mask / goggles',
+        'Motion sickness medication (dimenhydrinate)',
+      )
+    } else if (isHighlandOrCold) {
+      destinationItems.push(
+        'Heavy jacket / windproof windbreaker',
+        'Beanie & warm scarf',
+        'Warm thermal gloves',
+        'Face mask / volcanic dust protection',
+        'Warming eucalyptus balm / oil',
+      )
+    } else {
+      destinationItems.push(
+        'Compact travel umbrella / disposable raincoat',
+        'Reusable tote bag for shopping & souvenirs',
+        'Personal water bottle / tumbler',
+        'Sun hat / baseball cap',
+      )
+    }
+
+    return [
+      {
+        id: 'docs',
+        title: 'Documents & Money',
+        Icon: CreditCard,
+        items: [
+          'Passport / ID card & digital copy on phone',
+          'Flight tickets / boarding pass & hotel vouchers',
+          'Small cash bills (for parking, local street food & tips)',
+          'Debit / ATM cards & Credit cards',
+          'Travel health insurance card',
+        ],
+      },
+      {
+        id: 'clothes',
+        title: 'Clothing & Apparel',
+        Icon: Shirt,
+        items: [
+          'Casual clothes / breathable cotton t-shirts',
+          'Shorts & lightweight long trousers',
+          'Sleepwear / pajamas',
+          'Swimwear / quick-dry apparel',
+          'Light jacket / cardigan for flight & AC transit',
+          'Flip-flops & comfortable walking sneakers',
+          'Sunglasses (UV protection) & sun hat',
+        ],
+      },
+      {
+        id: 'gadgets',
+        title: 'Gadgets & Personal Health',
+        Icon: Smartphone,
+        items: [
+          'Power bank (min 10,000 mAh) & charging cables',
+          'Face & body sunscreen (SPF 50+ PA++++)',
+          'Aloe vera gel / soothing lotion after sun exposure',
+          'Personal medications, cold medicine & paracetamol',
+          'Adhesive bandages & eye drops',
+          'Hand sanitizer & wet / dry tissues',
+        ],
+      },
+      {
+        id: 'destination',
+        title: `Destination Specific (${destination})`,
+        Icon: isIslandOrBeach ? Palmtree : isHighlandOrCold ? Mountain : Compass,
+        items: destinationItems,
+      },
+    ]
+  }
+
+  // Indonesian fallback
   if (isIslandOrBeach) {
     destinationItems.push(
       'Dry bag (10L / 20L) untuk island hopping / kano',
@@ -124,6 +205,7 @@ export function PackingListModal({
   destination = 'Wisata',
   dayCount = 3,
 }: PackingListModalProps) {
+  const { lang } = useLanguage()
   const storageKey = `travel_packing_checked_v2:${destination.toLowerCase()}`
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
     try {
@@ -133,7 +215,7 @@ export function PackingListModal({
     }
   })
 
-  const categories = getPackingCategories(destination)
+  const categories = getPackingCategories(destination, lang)
   const allItems = categories.flatMap((c) => c.items)
   const totalItems = allItems.length
   const completedCount = allItems.filter((it) => Boolean(checkedItems[it])).length
@@ -166,7 +248,11 @@ export function PackingListModal({
   }
 
   function handleReset() {
-    if (window.confirm('Reset semua centang pada checklist bawaan ini?')) {
+    const confirmMsg =
+      lang === 'id'
+        ? 'Reset semua centang pada checklist bawaan ini?'
+        : 'Reset all checked items in this packing list?'
+    if (window.confirm(confirmMsg)) {
       setCheckedItems({})
       localStorage.removeItem(storageKey)
     }
@@ -191,10 +277,12 @@ export function PackingListModal({
             </span>
             <div>
               <h2 id="packing-title" className="font-display text-lg font-bold text-stone-900 dark:text-stone-100">
-                Checklist Bawaan Traveler
+                {lang === 'id' ? 'Checklist Bawaan Traveler' : 'Traveler Packing Checklist'}
               </h2>
               <p className="text-xs text-stone-600 dark:text-stone-400 font-medium">
-                Perlengkapan siap berangkat ke {destination} ({dayCount} Hari)
+                {lang === 'id'
+                  ? `Perlengkapan siap berangkat ke ${destination} (${dayCount} Hari)`
+                  : `Ready-to-pack gear for ${destination} (${dayCount} Days)`}
               </p>
             </div>
           </div>
@@ -202,7 +290,7 @@ export function PackingListModal({
             type="button"
             onClick={onClose}
             className="grid h-9 w-9 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-stone-800 dark:hover:text-stone-200 outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
-            aria-label="Tutup checklist"
+            aria-label={lang === 'id' ? 'Tutup checklist' : 'Close checklist'}
           >
             <X className="h-4 w-4" />
           </button>
@@ -212,14 +300,19 @@ export function PackingListModal({
         <div className="bg-stone-50 dark:bg-[#18202a] px-5 py-3 border-b border-stone-100 dark:border-stone-800">
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className="text-stone-700 dark:text-stone-300">
-              {completedCount} dari {totalItems} barang siap ({percent}%)
+              {lang === 'id'
+                ? `${completedCount} dari ${totalItems} barang siap (${percent}%)`
+                : `${completedCount} of ${totalItems} items ready (${percent}%)`}
             </span>
             {percent === 100 ? (
               <span className="flex items-center gap-1 font-bold text-teal-800 dark:text-teal-300">
-                <CheckCircle2 className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" /> Siap Berangkat!
+                <CheckCircle2 className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
+                {lang === 'id' ? 'Siap Berangkat!' : 'Ready to Depart!'}
               </span>
             ) : (
-              <span className="text-stone-500 dark:text-stone-400 text-[11px]">Tersisa {totalItems - completedCount} barang</span>
+              <span className="text-stone-500 dark:text-stone-400 text-[11px]">
+                {lang === 'id' ? `Tersisa ${totalItems - completedCount} barang` : `${totalItems - completedCount} items remaining`}
+              </span>
             )}
           </div>
           <div
@@ -227,7 +320,7 @@ export function PackingListModal({
             aria-valuenow={percent}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label="Progress kelengkapan barang"
+            aria-label={lang === 'id' ? 'Progress kelengkapan barang' : 'Packing list progress'}
             className="mt-2 h-2 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800"
           >
             <div
@@ -291,14 +384,14 @@ export function PackingListModal({
             className="flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-rose-600 dark:text-stone-400 dark:hover:text-rose-400 transition outline-none focus-visible:ring-2 focus-visible:ring-rose-600"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            <span>Reset Centang</span>
+            <span>{lang === 'id' ? 'Reset Centang' : 'Reset Checked'}</span>
           </button>
           <button
             type="button"
             onClick={onClose}
             className="rounded-xl bg-teal-700 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-teal-800 active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-1 shadow-xs"
           >
-            Selesai
+            {lang === 'id' ? 'Selesai' : 'Done'}
           </button>
         </div>
       </div>

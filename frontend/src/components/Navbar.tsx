@@ -18,7 +18,9 @@ import {
   Moon,
   HelpCircle,
   Sparkles,
+  Languages,
 } from 'lucide-react'
+import { useLanguage } from '../lib/i18n'
 
 type NavbarUser = { email: string; display_name: string }
 
@@ -69,6 +71,7 @@ export function Navbar({
   onOpenSpotlight,
   isStartingSession,
 }: NavbarProps) {
+  const { lang, setLang, t } = useLanguage()
   const [searchVal, setSearchVal] = useState('')
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -120,8 +123,8 @@ export function Navbar({
           type="text"
           value={searchVal}
           onChange={(e) => setSearchVal(e.target.value)}
-          placeholder={destination ? `Cari tempat di ${destination}…` : 'Cari destinasi, pantai, kuliner…'}
-          aria-label="Cari tempat atau aktivitas"
+          placeholder={destination ? t('searchInDest', { dest: destination }) : t('searchPlaceholder')}
+          aria-label={t('searchAriaLabel')}
           className="w-full rounded-full border border-stone-200 bg-stone-100/70 py-2.5 pl-11 pr-10 text-sm text-stone-800 placeholder:text-stone-400 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-teal-500 dark:focus:bg-[#141920]"
         />
         {searchVal && (
@@ -129,7 +132,7 @@ export function Navbar({
             type="button"
             onClick={() => setSearchVal('')}
             className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-            aria-label="Hapus teks pencarian"
+            aria-label={t('clearSearch')}
           >
             <span className="text-xs font-bold leading-none">✕</span>
           </button>
@@ -143,11 +146,11 @@ export function Navbar({
             type="button"
             onClick={onShareWhatsApp}
             className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-[0.97] dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-            title="Bagikan rute perjalanan ke WhatsApp"
-            aria-label="Bagikan WhatsApp"
+            title={t('shareWaTitle')}
+            aria-label={t('shareWa')}
           >
             <Share2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-            <span className="hidden md:inline">WhatsApp</span>
+            <span className="hidden md:inline">{t('shareWa')}</span>
           </button>
         )}
         {onOpenPackingList && (
@@ -155,11 +158,11 @@ export function Navbar({
             type="button"
             onClick={onOpenPackingList}
             className="hidden sm:flex min-h-[44px] items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 text-sm font-semibold text-stone-700 transition hover:border-stone-300 hover:bg-stone-50 active:scale-[0.97] dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-200 dark:hover:border-stone-700 dark:hover:bg-[#222c3a]"
-            title="Buka checklist barang bawaan traveler"
-            aria-label="Checklist bawaan"
+            title={t('packingTitle')}
+            aria-label={t('packing')}
           >
             <CheckSquare className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-            <span className="hidden lg:inline">Packing</span>
+            <span className="hidden lg:inline">{t('packing')}</span>
           </button>
         )}
         {onOpenTutorial && (
@@ -167,11 +170,11 @@ export function Navbar({
             type="button"
             onClick={onOpenTutorial}
             className="hidden sm:flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 text-sm font-semibold text-stone-700 transition hover:border-teal-700/40 hover:bg-teal-50/50 hover:text-teal-800 active:scale-[0.97] dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-200 dark:hover:border-teal-500/40 dark:hover:bg-teal-950/30"
-            title="Buka panduan & tips penggunaan"
-            aria-label="Panduan penggunaan"
+            title={t('guideTitle')}
+            aria-label={t('guide')}
           >
             <HelpCircle className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-            <span className="hidden xl:inline">Panduan</span>
+            <span className="hidden xl:inline">{t('guide')}</span>
           </button>
         )}
         {hasItinerary && onExportPdf && (
@@ -179,11 +182,11 @@ export function Navbar({
             type="button"
             onClick={onExportPdf}
             className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 text-sm font-semibold text-stone-700 transition hover:border-stone-300 hover:bg-stone-50 active:scale-[0.97] dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-200 dark:hover:border-stone-700 dark:hover:bg-[#222c3a]"
-            title="Unduh / cetak laporan perjalanan (PDF)"
-            aria-label="Laporan PDF"
+            title={t('reportPdfTitle')}
+            aria-label={t('reportPdf')}
           >
             <Download className="h-4 w-4" />
-            <span className="hidden lg:inline">PDF</span>
+            <span className="hidden lg:inline">{t('reportPdf')}</span>
           </button>
         )}
         {hasItinerary && onExportCalendar && (
@@ -191,10 +194,10 @@ export function Navbar({
             type="button"
             onClick={onExportCalendar}
             className="hidden sm:flex min-h-[44px] items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 text-sm font-semibold text-stone-700 transition hover:border-stone-300 hover:bg-stone-50 active:scale-[0.97] dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-200 dark:hover:border-stone-700 dark:hover:bg-[#222c3a]"
-            title="Ekspor ke kalender (.ics)"
+            title={t('calendarTitle')}
           >
             <CalendarDays className="h-4 w-4" />
-            <span className="hidden lg:inline">Kalender</span>
+            <span className="hidden lg:inline">{t('calendar')}</span>
           </button>
         )}
 
@@ -204,11 +207,11 @@ export function Navbar({
             onClick={onNewSession}
             disabled={isStartingSession}
             className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-teal-700 px-4 text-sm font-semibold text-white shadow-sm shadow-teal-900/20 transition hover:bg-teal-800 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-600 dark:hover:bg-teal-700"
-            title="Mulai sesi baru dan buat itinerary dari awal"
-            aria-label="Sesi baru"
+            title={t('newSessionTitle')}
+            aria-label={t('newSession')}
           >
             {isStartingSession ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            <span className="hidden sm:inline">Sesi Baru</span>
+            <span className="hidden sm:inline">{t('newSession')}</span>
           </button>
         )}
 
@@ -218,8 +221,8 @@ export function Navbar({
             type="button"
             onClick={onToggleTheme}
             className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-stone-200 bg-white text-stone-700 transition hover:border-stone-300 hover:bg-stone-50 active:scale-[0.96] dark:border-stone-800 dark:bg-[#1a212b] dark:text-amber-300 dark:hover:border-stone-700 dark:hover:bg-[#222c3a]"
-            title={theme === 'dark' ? 'Ganti ke Mode Terang (Light Mode)' : 'Ganti ke Mode Gelap (Dark Mode)'}
-            aria-label={theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
+            title={theme === 'dark' ? t('themeLightTooltip') : t('themeDarkTooltip')}
+            aria-label={theme === 'dark' ? t('themeLightTooltip') : t('themeDarkTooltip')}
           >
             {theme === 'dark' ? (
               <Sun className="h-4 w-4 text-amber-300 transition-transform duration-300 hover:rotate-45" />
@@ -229,14 +232,26 @@ export function Navbar({
           </button>
         )}
 
+        {/* Language Switcher Toggle Button */}
+        <button
+          type="button"
+          onClick={() => setLang(lang === 'id' ? 'en' : 'id')}
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-full border border-stone-200 bg-white px-2.5 text-xs font-bold text-stone-700 transition hover:border-stone-300 hover:bg-stone-50 active:scale-[0.96] dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-200 dark:hover:border-stone-700 dark:hover:bg-[#222c3a]"
+          title={t('langSwitchTooltip')}
+          aria-label={t('langSwitchTooltip')}
+        >
+          <Languages className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
+          <span className="uppercase tracking-wider">{lang === 'id' ? 'ID' : 'EN'}</span>
+        </button>
+
         {/* Mobile Panduan button */}
         {onOpenTutorial && (
           <button
             type="button"
             onClick={onOpenTutorial}
             className="grid h-11 w-11 place-items-center rounded-full border border-stone-200 bg-white text-stone-700 sm:hidden dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-200"
-            title="Panduan penggunaan"
-            aria-label="Panduan penggunaan"
+            title={t('guide')}
+            aria-label={t('guide')}
           >
             <HelpCircle className="h-4 w-4 text-teal-700 dark:text-teal-400" />
           </button>
@@ -247,7 +262,7 @@ export function Navbar({
           type="button"
           onClick={() => (user ? onOpenTrips?.() : onOpenAuth?.())}
           className="grid h-11 w-11 place-items-center rounded-full border border-stone-200 bg-white sm:hidden dark:border-stone-800 dark:bg-[#1a212b]"
-          aria-label={user ? 'Perjalanan saya' : 'Masuk atau daftar'}
+          aria-label={user ? t('myTrips') : t('signInOrRegister')}
         >
           <span
             className={`grid h-8 w-8 place-items-center rounded-full ${
@@ -298,8 +313,8 @@ export function Navbar({
                   </>
                 ) : (
                   <>
-                    <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">Tamu</p>
-                    <p className="text-xs text-stone-500 dark:text-stone-400">Sesi anonim di perangkat ini</p>
+                    <p className="text-sm font-semibold text-stone-900 dark:text-stone-100">{lang === 'id' ? 'Tamu' : 'Guest'}</p>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">{lang === 'id' ? 'Sesi anonim di perangkat ini' : 'Anonymous session on this device'}</p>
                   </>
                 )}
               </div>
@@ -320,13 +335,31 @@ export function Navbar({
                     ) : (
                       <Moon className="h-4 w-4 text-stone-500" />
                     )}
-                    <span>Mode Tampilan</span>
+                    <span>{lang === 'id' ? 'Mode Tampilan' : 'Appearance'}</span>
                   </span>
                   <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-600 dark:bg-[#252f3e] dark:text-stone-300">
-                    {theme === 'dark' ? 'Gelap' : 'Terang'}
+                    {theme === 'dark' ? (lang === 'id' ? 'Gelap' : 'Dark') : (lang === 'id' ? 'Terang' : 'Light')}
                   </span>
                 </button>
               )}
+
+              {/* Language toggle row in dropdown */}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setLang(lang === 'id' ? 'en' : 'id')
+                }}
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-[#222c3a]"
+              >
+                <span className="flex items-center gap-2">
+                  <Languages className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+                  <span>{lang === 'id' ? 'Bahasa' : 'Language'}</span>
+                </span>
+                <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[11px] font-bold text-teal-700 dark:bg-[#252f3e] dark:text-teal-400">
+                  {lang === 'id' ? 'Bahasa Indonesia' : 'English'}
+                </span>
+              </button>
 
               {user && (
                 <button
@@ -338,7 +371,7 @@ export function Navbar({
                   }}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-[#222c3a]"
                 >
-                  <Luggage className="h-4 w-4 text-stone-500 dark:text-stone-400" /> Perjalanan saya
+                  <Luggage className="h-4 w-4 text-stone-500 dark:text-stone-400" /> {t('myTrips')}
                 </button>
               )}
 
@@ -352,7 +385,7 @@ export function Navbar({
                   }}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-[#222c3a]"
                 >
-                  <CheckSquare className="h-4 w-4 text-teal-700 dark:text-teal-400" /> Checklist bawaan
+                  <CheckSquare className="h-4 w-4 text-teal-700 dark:text-teal-400" /> {t('packing')}
                 </button>
               )}
 
@@ -366,7 +399,7 @@ export function Navbar({
                   }}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
                 >
-                  <Share2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> Bagikan ke WhatsApp
+                  <Share2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> {t('btnShareWa')}
                 </button>
               )}
 
@@ -379,7 +412,7 @@ export function Navbar({
                 }}
                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-[#222c3a]"
               >
-                <Settings2 className="h-4 w-4 text-stone-500 dark:text-stone-400" /> Kelola preferensi
+                <Settings2 className="h-4 w-4 text-stone-500 dark:text-stone-400" /> {t('savedPreferences')}
               </button>
 
               {onOpenSpotlight && (
@@ -392,7 +425,7 @@ export function Navbar({
                   }}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-[#222c3a]"
                 >
-                  <Sparkles className="h-4 w-4 text-amber-500" /> Tur Interaktif (Spotlight)
+                  <Sparkles className="h-4 w-4 text-amber-500" /> {t('spotlightTour')}
                 </button>
               )}
 
@@ -406,7 +439,7 @@ export function Navbar({
                   }}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-[#222c3a]"
                 >
-                  <HelpCircle className="h-4 w-4 text-teal-700 dark:text-teal-400" /> Panduan & tips penggunaan
+                  <HelpCircle className="h-4 w-4 text-teal-700 dark:text-teal-400" /> {t('guide')}
                 </button>
               )}
 
@@ -420,7 +453,7 @@ export function Navbar({
                   }}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
                 >
-                  <LogOut className="h-4 w-4" /> Keluar
+                  <LogOut className="h-4 w-4" /> {t('signOut')}
                 </button>
               ) : (
                 <button
@@ -432,7 +465,7 @@ export function Navbar({
                   }}
                   className="mt-1 flex w-full items-center gap-2 rounded-xl bg-teal-700 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-700"
                 >
-                  <LogIn className="h-4 w-4" /> Masuk / Daftar
+                  <LogIn className="h-4 w-4" /> {t('signInOrRegister')}
                 </button>
               )}
             </div>

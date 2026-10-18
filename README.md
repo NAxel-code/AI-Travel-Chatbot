@@ -1,12 +1,14 @@
 # Rute — AI Travel Planner
 
+[**Bahasa Indonesia**](README.md) | [English Version](README.en.md)
+
 [![CI](https://github.com/NAxel-code/AI-Travel-Chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/NAxel-code/AI-Travel-Chatbot/actions/workflows/ci.yml)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D24-brightgreen.svg)](https://nodejs.org/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-orange.svg)](https://workers.cloudflare.com/)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8.svg)](https://tailwindcss.com/)
 
-Perencana perjalanan cerdas berbahasa Indonesia yang mengubah percakapan natural menjadi itinerary multi-hari yang terstruktur, realistis, dan siap jalan. Didukung oleh **Google Gemini AI**, basis data geospasial **Google Maps & OpenStreetMap**, prakiraan cuaca **Open-Meteo**, kalkulator transparansi anggaran, serta penyimpanan cloud **Cloudflare D1 & KV**.
+Perencana perjalanan cerdas dwibahasa (Bahasa Indonesia & English) yang mengubah percakapan natural menjadi itinerary multi-hari yang terstruktur, realistis, dan siap jalan. Didukung oleh **Google Gemini AI**, basis data geospasial **Google Maps & OpenStreetMap**, prakiraan cuaca **Open-Meteo**, kalkulator transparansi anggaran, serta penyimpanan cloud **Cloudflare D1 & KV**.
 
 ---
 
@@ -65,6 +67,11 @@ Aplikasi dirancang dengan estetika editorial **Hallmark** dan panduan **UI-UX-Pr
 
 ### 7. Akun & Multi-Session Terpadu
 - Mendukung mode anonim instan serta login/register akun untuk menyimpan riwayat perjalanan multi-perangkat di Cloudflare D1.
+
+### 8. Dukungan Dwibahasa Penuh (Bilingual Indonesian & English)
+- **Toggle Bahasa 1-Klik**: Tombol pengubah bahasa (`ID` / `EN`) di bilah navigasi atas dan menu drawer mobile.
+- **Lokalisasi Menyeluruh**: Seluruh antarmuka (Navbar, Workspace, Jadwal Harian, Peta, Kalkulator Biaya, Tur Spotlight, Modal Panduan, dan Checklist Bawaan) diterjemahkan secara rapi dan kontekstual.
+- **Persistensi Otomatis**: Bahasa pilihan tersimpan di `localStorage` (`rute_language_preference`) serta memperbarui atribut `<html lang="...">` untuk aksesibilitas dan SEO.
 
 ---
 
@@ -130,12 +137,14 @@ flowchart TD
 │   │   │   └── TutorialModal.tsx      # Modal panduan komprehensif & contoh prompt
 │   │   ├── lib/
 │   │   │   ├── calendar.ts            # Parser & generator RFC iCalendar (.ics)
+│   │   │   ├── i18n.tsx               # Sistem kamus dwibahasa (ID & EN) & LanguageProvider
 │   │   │   ├── sse.ts                 # Parser Server-Sent Events tahan chunk terpotong
 │   │   │   └── travelReport.ts        # Generator dokumen PDF laporan perjalanan
 │   │   ├── App.tsx                    # Komponen utama state & integrasi workspace
 │   │   └── index.css                  # Tema Tailwind CSS, token Obsidian, & Sand & Sea
 │   └── vercel.json                    # Konfigurasi routing & serverless build Vercel
-└── README.md
+├── README.en.md                       # Dokumentasi resmi versi Bahasa Inggris
+└── README.md                          # Dokumentasi resmi versi Bahasa Indonesia
 ```
 
 ---

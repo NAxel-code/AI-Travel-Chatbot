@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Loader2, Mail, Lock, Route } from 'lucide-react'
+import { useLanguage } from '../lib/i18n'
 
 type AuthMode = 'login' | 'register'
 
@@ -12,6 +13,7 @@ type AuthModalProps = {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
+  const { lang } = useLanguage()
   const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -41,15 +43,19 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
     if (isSubmitting) return
     const trimmedEmail = email.trim().toLowerCase()
     if (!EMAIL_PATTERN.test(trimmedEmail)) {
-      setError('Masukkan alamat email yang valid.')
+      setError(
+        lang === 'id' ? 'Masukkan alamat email yang valid.' : 'Please enter a valid email address.'
+      )
       return
     }
     if (mode === 'register' && (password.length < 8 || password.length > 128)) {
-      setError('Password harus 8-128 karakter.')
+      setError(
+        lang === 'id' ? 'Password harus 8-128 karakter.' : 'Password must be 8-128 characters.'
+      )
       return
     }
     if (!password) {
-      setError('Password wajib diisi.')
+      setError(lang === 'id' ? 'Password wajib diisi.' : 'Password is required.')
       return
     }
     setError(null)
@@ -70,7 +76,15 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
       className="fixed inset-0 z-[9999] flex items-end justify-center bg-stone-900/50 dark:bg-black/75 p-0 backdrop-blur-xs sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={isLogin ? 'Masuk ke akun' : 'Buat akun baru'}
+      aria-label={
+        isLogin
+          ? lang === 'id'
+            ? 'Masuk ke akun'
+            : 'Sign in to account'
+          : lang === 'id'
+          ? 'Buat akun baru'
+          : 'Create new account'
+      }
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -83,12 +97,22 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
             </span>
             <div>
               <h2 className="font-display text-xl font-bold text-stone-900 dark:text-stone-100">
-                {isLogin ? 'Masuk' : 'Buat akun'}
+                {isLogin
+                  ? lang === 'id'
+                    ? 'Masuk'
+                    : 'Sign In'
+                  : lang === 'id'
+                  ? 'Buat Akun'
+                  : 'Create Account'}
               </h2>
               <p className="text-xs text-stone-600 dark:text-stone-400 font-medium">
                 {isLogin
-                  ? 'Preferensi dan perjalananmu mengikuti akun, bukan perangkat.'
-                  : 'Simpan preferensi dan semua perjalanan dalam satu akun.'}
+                  ? lang === 'id'
+                    ? 'Preferensi dan perjalananmu mengikuti akun, bukan perangkat.'
+                    : 'Your preferences and trips follow your account, not your device.'
+                  : lang === 'id'
+                  ? 'Simpan preferensi dan semua perjalanan dalam satu akun.'
+                  : 'Save preferences and all travel plans in one account.'}
               </p>
             </div>
           </div>
@@ -96,7 +120,7 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
             type="button"
             onClick={onClose}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-stone-800 dark:hover:text-stone-200 outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
-            aria-label="Tutup dialog masuk"
+            aria-label={lang === 'id' ? 'Tutup dialog' : 'Close dialog'}
           >
             <X className="h-4 w-4" />
           </button>
@@ -104,7 +128,10 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
 
         {/* Mode toggle */}
         <div className="mb-5 flex gap-1 rounded-full bg-stone-100 dark:bg-[#1a212b] p-1" role="tablist">
-          {([['login', 'Masuk'], ['register', 'Daftar']] as const).map(([value, label]) => (
+          {([
+            ['login', lang === 'id' ? 'Masuk' : 'Sign In'],
+            ['register', lang === 'id' ? 'Daftar' : 'Register'],
+          ] as const).map(([value, label]) => (
             <button
               key={value}
               type="button"
@@ -133,7 +160,7 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="kamu@email.com"
+                placeholder="you@email.com"
                 className="w-full rounded-xl border border-stone-200 bg-stone-50/70 py-2.5 pl-10 pr-3 text-sm text-stone-900 placeholder:text-stone-400 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:bg-[#141920]"
               />
             </span>
@@ -148,7 +175,15 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
                 autoComplete={isLogin ? 'current-password' : 'new-password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={isLogin ? 'Password akun' : 'Minimal 8 karakter'}
+                placeholder={
+                  isLogin
+                    ? lang === 'id'
+                      ? 'Password akun'
+                      : 'Account password'
+                    : lang === 'id'
+                    ? 'Minimal 8 karakter'
+                    : 'At least 8 characters'
+                }
                 className="w-full rounded-xl border border-stone-200 bg-stone-50/70 py-2.5 pl-10 pr-3 text-sm text-stone-900 placeholder:text-stone-400 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:border-stone-800 dark:bg-[#1a212b] dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:bg-[#141920]"
               />
             </span>
@@ -166,18 +201,38 @@ export function AuthModal({ onClose, onSubmit }: AuthModalProps) {
             className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 text-sm font-semibold text-white shadow-xs transition hover:bg-teal-800 active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            <span>{isLogin ? 'Masuk' : 'Buat akun'}</span>
+            <span>
+              {isLogin
+                ? lang === 'id'
+                  ? 'Masuk'
+                  : 'Sign In'
+                : lang === 'id'
+                ? 'Buat Akun'
+                : 'Create Account'}
+            </span>
           </button>
         </form>
 
         <p className="mt-4 text-center text-xs text-stone-600 dark:text-stone-400">
-          {isLogin ? 'Belum punya akun? ' : 'Sudah punya akun? '}
+          {isLogin
+            ? lang === 'id'
+              ? 'Belum punya akun? '
+              : "Don't have an account? "
+            : lang === 'id'
+            ? 'Sudah punya akun? '
+            : 'Already have an account? '}
           <button
             type="button"
             onClick={() => switchMode(isLogin ? 'register' : 'login')}
             className="font-semibold text-teal-800 dark:text-teal-400 underline-offset-2 hover:underline outline-none focus-visible:ring-1 focus-visible:ring-teal-700 rounded-sm"
           >
-            {isLogin ? 'Daftar sekarang' : 'Masuk di sini'}
+            {isLogin
+              ? lang === 'id'
+                ? 'Daftar sekarang'
+                : 'Sign up now'
+              : lang === 'id'
+              ? 'Masuk di sini'
+              : 'Sign in here'}
           </button>
         </p>
       </div>
