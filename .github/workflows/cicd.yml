@@ -1,0 +1,103 @@
+name: CICD
+
+on:
+  push:
+    branches: [main, feature/*]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cicd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Tahap 1: Pengujian Kode, Keamanan (SAST), dan Kualitas
+  sast_and_tests:
+    name: SAST & Quality Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # 1. Pengecekan Backend
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Backend Typecheck (TypeScript)
+        working-directory: backend
+        run: npm run check
+
+      - name: Backend Unit Tests
+        working-directory: backend
+        run: npm test
+
+      # 2. Pengecekan Frontend
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend Linter & Security Check (Oxlint)
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Frontend Unit Tests
+        working-directory: frontend
+        run: npm test
+
+  # Tahap 2: Build & Penyimpanan Artifact (Terhubung dengan panah ke Tahap 1)
+  build_and_package:
+    name: Build & Package Artifacts
+    needs: [sast_and_tests] # Ini kuncinya! Membuat garis panah di visual graph GitHub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # 1. Build & Dry-run Backend Worker
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Verify Backend Cloudflare Worker Bundle
+        working-directory: backend
+        run: npx wrangler deploy --dry-run
+
+      # 2. Build Frontend SPA (Vite)
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Frontend Production Bundle
+        working-directory: frontend
+        run: npm run build
+
+      # 3. Upload Hasil Build sebagai Artifact (Muncul di bagian Artifacts GitHub UI)
+      - name: Upload Production Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-production-dist
+          path: frontend/dist
+          retention-days: 7
